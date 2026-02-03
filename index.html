@@ -1,0 +1,2011 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Track Record Pro</title>
+  <!-- Chart.js and PapaParse via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    /* Core color palette */
+    :root {
+      --bg: #0c0f15;
+      --surface: #161c24;
+      --card: #1f2933;
+      --border: rgba(255,255,255,0.09);
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #3b82f6;
+      --accent-light: #60a5fa;
+      --good: #16a34a;
+      --bad: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Arial, sans-serif;
+      background: radial-gradient(circle at 0% 20%, rgba(96,165,250,0.12), transparent 60%),
+                  radial-gradient(circle at 80% 0%, rgba(34,197,94,0.10), transparent 60%), var(--bg);
+      color: var(--text);
+      line-height: 1.4;
+    }
+    .container {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 2rem 1rem 4rem;
+    }
+    h1 {
+      margin: 0;
+      font-size: 2.5rem;
+      font-weight: 700;
+      text-align: center;
+    }
+    p.tagline {
+      text-align: center;
+      margin: 0.5rem auto 2rem;
+      color: var(--muted);
+      max-width: 600px;
+    }
+    /* Controls */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .file-input {
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.5rem;
+      border: 2px dashed var(--border);
+      background: rgba(255,255,255,0.04);
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .btn {
+      padding: 0.6rem 1rem;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+    .btn.primary {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+    .btn.primary:hover { background: var(--accent-light); }
+    .btn-group button {
+      padding: 0.4rem 0.8rem;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      border-radius: 0.4rem;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+    .btn-group button.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+    /* KPI cards */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 0.8rem;
+      margin-top: 1.2rem;
+      margin-bottom: 2rem;
+    }
+    .kpi-card {
+      background: var(--card);
+      padding: 1rem;
+      border-radius: 0.75rem;
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 16px rgba(0,0,0,0.25);
+    }
+    .kpi-card h3 {
+      margin: 0;
+      font-size: 0.85rem;
+      color: var(--muted);
+      letter-spacing: 0.02em;
+    }
+    .kpi-card .value {
+      margin-top: 0.2rem;
+      font-size: 1.75rem;
+      font-weight: 700;
+    }
+    /* Charts */
+    .chart-wrapper {
+      background: var(--card);
+      padding: 1.25rem;
+      border-radius: 0.75rem;
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 16px rgba(0,0,0,0.25);
+      margin-bottom: 1.5rem;
+    }
+    /* Grid for charts container */
+    .chart-grid {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 900px) {
+      .chart-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.6rem;
+    }
+    .chart-header h3 {
+      margin: 0;
+      font-size: 1rem;
+      color: var(--muted);
+    }
+
+    /* Grid for analysis charts */
+    .analysis-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .toggle-btns button {
+      padding: 0.3rem 0.8rem;
+      border: 1px solid var(--border);
+      border-radius: 0.4rem;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.8rem;
+      margin-left: 0.2rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .toggle-btns button.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+    /* Filter buttons */
+    .range-filter {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin: 1rem 0;
+    }
+    .range-filter button {
+      padding: 0.4rem 0.8rem;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      border-radius: 0.4rem;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+    .range-filter button.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+    .custom-range {
+      display: none;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .custom-range input[type="date"] {
+      padding: 0.4rem 0.6rem;
+      border: 1px solid var(--border);
+      border-radius: 0.4rem;
+      background: var(--surface);
+      color: var(--text);
+    }
+    .custom-range button.apply {
+      padding: 0.4rem 0.8rem;
+      border-radius: 0.4rem;
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: white;
+      cursor: pointer;
+    }
+    /* Search and table */
+    .search-bar {
+      margin: 1rem 0;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .search-bar input {
+      flex: 1;
+      padding: 0.5rem 0.8rem;
+      border-radius: 0.4rem;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .stats-display {
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    th {
+      text-align: left;
+      padding: 0.5rem 0.4rem;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    td {
+      padding: 0.45rem 0.4rem;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    tr:hover {
+      background: rgba(255,255,255,0.03);
+      cursor: pointer;
+    }
+    .pos { color: var(--good); font-weight: 600; }
+    .neg { color: var(--bad); font-weight: 600; }
+    /* Modal details */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.65);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .modal-content {
+      background: var(--card);
+      border-radius: 0.8rem;
+      border: 1px solid var(--border);
+      padding: 1.5rem;
+      max-width: 680px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.35);
+    }
+    .modal-content h4 {
+      margin-top: 0;
+      margin-bottom: 0.75rem;
+      font-size: 1.2rem;
+      color: var(--accent);
+    }
+    .modal-content .details {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.6rem;
+    }
+    .modal-content .details div {
+      background: var(--surface);
+      padding: 0.6rem;
+      border-radius: 0.4rem;
+      border: 1px solid var(--border);
+    }
+    .modal-content .details div span {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .modal-content .details div strong {
+      display: block;
+      margin-top: 0.2rem;
+      font-size: 0.9rem;
+    }
+    .modal-content .images {
+      margin-top: 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+    .modal-content .images img {
+      max-width: calc(50% - 0.6rem);
+      border-radius: 0.4rem;
+      border: 1px solid var(--border);
+    }
+    .modal-close {
+      margin-top: 1rem;
+      text-align: right;
+    }
+    .modal-close button {
+      padding: 0.4rem 0.8rem;
+      background: var(--bad);
+      border: none;
+      color: white;
+      border-radius: 0.4rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Mi Track Record Pro</h1>
+    <p class="tagline">Explora tus trades por día, semana o mes. Filtra rangos personalizados, compara con benchmarks y revisa cada operación con un clic.</p>
+
+    <!-- Display last update time for Google Sheet auto‑sync -->
+    <div id="lastUpdated" style="color:var(--muted); font-size:0.8rem; text-align:center; margin-top:0.5rem;"></div>
+
+    <!-- Capital input row -->
+<!-- Hour filter -->
+<div style="display:flex; justify-content:center; align-items:center; gap:0.5rem; margin-bottom:1rem; flex-wrap:wrap;">
+  <label style="color:var(--muted); font-size:0.85rem;">Hora desde:</label>
+  <input id="timeFrom" type="time" value="00:00"
+    style="padding:0.4rem 0.6rem; border:1px solid var(--border); border-radius:0.4rem; background:var(--surface); color:var(--text); width:110px;">
+
+  <label style="color:var(--muted); font-size:0.85rem;">Hora hasta:</label>
+  <input id="timeTo" type="time" value="23:59"
+    style="padding:0.4rem 0.6rem; border:1px solid var(--border); border-radius:0.4rem; background:var(--surface); color:var(--text); width:110px;">
+
+  <button id="applyFiltersBtn" class="btn">Aplicar filtros</button>
+  <button id="resetFiltersBtn" class="btn">Limpiar filtros</button>
+</div>
+    <!-- Range filter buttons -->
+    <div class="range-filter">
+      <button id="todayBtn">Hoy</button>
+      <button id="weekBtn">Esta semana</button>
+      <button id="monthBtn">Este mes</button>
+      <button id="ytdBtn">YTD</button>
+      <button id="customBtn">Rango</button>
+    </div>
+    <div class="custom-range" id="customRange">
+      <input type="date" id="startDate">
+      <input type="date" id="endDate">
+      <button class="apply" id="applyRangeBtn">Aplicar</button>
+    </div>
+   <!-- Pair filter + Reset filters -->
+<div style="display:flex; justify-content:center; align-items:center; gap:0.5rem; margin-bottom:1rem; flex-wrap:wrap;">
+  <label for="pairFilter" style="color:var(--muted); font-size:0.85rem;">Par:</label>
+
+  <select id="pairFilter"
+    style="padding:0.45rem 0.6rem; border:1px solid var(--border); border-radius:0.5rem; background:var(--surface); color:var(--text); min-width:140px;">
+    <option value="ALL">Todos</option>
+  </select>
+
+</div>
+    <!-- KPI cards -->
+    <div class="kpi-grid">
+        <!-- Return percentage for the selected period inserted before the PnL card -->
+        <div class="kpi-card"><h3>Retorno (%)</h3><div class="value" id="kpiReturn">0.00%</div></div>
+        <div class="kpi-card"><h3>PnL total</h3><div class="value" id="kpiTotal">0.00</div></div>
+      <div class="kpi-card"><h3>PnL promedio</h3><div class="value" id="kpiAvg">0.00</div></div>
+      <div class="kpi-card"><h3>Win rate</h3><div class="value" id="kpiWin">0%</div></div>
+      <div class="kpi-card"><h3>Max drawdown</h3><div class="value" id="kpiDD">0%</div></div>
+      <div class="kpi-card"><h3>Sharpe</h3><div class="value" id="kpiSharpe">0.00</div></div>
+      <div class="kpi-card"><h3>Calmar</h3><div class="value" id="kpiCalmar">0.00</div></div>
+
+      <!-- Additional KPIs for more advanced metrics -->
+      <div class="kpi-card"><h3>Profit Factor</h3><div class="value" id="kpiProfitFactor">0.00</div></div>
+      <div class="kpi-card"><h3>Payoff Ratio</h3><div class="value" id="kpiPayoff">0.00</div></div>
+      <div class="kpi-card"><h3>Expectancia</h3><div class="value" id="kpiExpectancy">0.00</div></div>
+
+      <!-- KPI cards for Risk:Reward analysis -->
+      <div class="kpi-card"><h3>RR real prom.</h3><div class="value" id="kpiRRReal">0.00R</div></div>
+      <div class="kpi-card"><h3>RR potencial prom.</h3><div class="value" id="kpiRRPot">0.00R</div></div>
+    <!-- New KPI card showing the optimal take‑profit level computed from the MFE P80 statistic. -->
+    <div class="kpi-card">
+  <h3>TP Óptimo (máx. expectancia)</h3>
+  <div class="value" id="kpiTPOptimo">0</div>
+</div>
+<div class="kpi-card">
+  <h3>TP Óptimo (con parciales)</h3>
+  <div class="value" id="kpiTPOptimoParcial">0</div>
+</div>
+</div>
+    <!-- Charts container: equity and PnL side by side -->
+    <div class="chart-grid">
+      <!-- Equity chart -->
+      <div class="chart-wrapper">
+        <div class="chart-header">
+          <h3>Curva de equity</h3>
+          <div style="display:flex; gap:0.4rem; align-items:center;">
+            <div class="toggle-btns" id="equityToggle">
+              <button data-type="money" class="active">Dinero</button>
+              <button data-type="percentage">%</button>
+            </div>
+          </div>
+        </div>
+        <canvas id="equityChart" height="200"></canvas>
+      </div>
+      <!-- PnL chart -->
+      <div class="chart-wrapper">
+        <div class="chart-header" style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <h3 style="margin:0;">Rendimiento (%)</h3>
+            <div class="toggle-btns" id="pnlToggle">
+              <button data-range="daily">Diario</button>
+              <button data-range="weekly">Semanal</button>
+              <button data-range="monthly" class="active">Mensual</button>
+            </div>
+          </div>
+          <!-- Reset button appears when filtering by bar -->
+          <button id="resetGroupBtn" class="btn" style="display:none; padding:0.3rem 0.6rem; font-size:0.8rem;">Ver todo</button>
+        </div>
+        <canvas id="pnlChart" height="200"></canvas>
+      </div>
+    </div>
+    <!-- Search bar -->
+    <div class="search-bar">
+      <input id="searchInput" type="text" placeholder="Buscar símbolo, fecha, comentario…">
+      <div class="stats-display" id="tradeStats">0 trades</div>
+    </div>
+    <!-- Trades table -->
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Símbolo</th>
+            <th>Tipo</th>
+            <th>PnL</th>
+            <th>Comentario</th>
+          </tr>
+        </thead>
+        <tbody id="tradesBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Analysis charts -->
+    <div class="analysis-grid">
+      <div class="chart-wrapper">
+        <h3>Distribución por par</h3>
+        <canvas id="pairCountChart" height="200"></canvas>
+      </div>
+      <div class="chart-wrapper">
+        <h3>Win rate por par</h3>
+        <canvas id="pairWinChart" height="200"></canvas>
+      </div>
+      <div class="chart-wrapper">
+        <h3>Distribución por timeframe</h3>
+        <canvas id="tfCountChart" height="200"></canvas>
+      </div>
+      <div class="chart-wrapper">
+        <h3>Win rate por timeframe</h3>
+        <canvas id="tfWinChart" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+  <!-- Modal for trade details -->
+  <div class="modal" id="detailModal">
+    <div class="modal-content">
+      <h4>Detalles del Trade</h4>
+      <div class="details" id="detailGrid"></div>
+      <div class="images" id="detailImages"></div>
+      <div class="modal-close"><button id="closeModalBtn">Cerrar</button></div>
+    </div>
+  </div>
+  <script>
+    function populatePairFilter(trades) {
+  const sel = document.getElementById('pairFilter');
+  if (!sel) return;
+
+  const current = sel.value || 'ALL';
+
+  const pairs = Array.from(new Set(
+    (trades || [])
+      .map(t => (t.symbol ?? '').toString().trim().toUpperCase())
+      .filter(s => s.length > 0)
+  )).sort();
+
+  sel.innerHTML = '<option value="ALL">Todos</option>';
+  pairs.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p;
+    opt.textContent = p;
+    sel.appendChild(opt);
+  });
+
+  sel.value = pairs.includes(current) ? current : 'ALL';
+}
+    // Utility functions
+    const $ = (id) => document.getElementById(id);
+    const fmt2 = (num) => Number.isFinite(num) ? num.toFixed(2) : '0.00';
+    const pct = (val) => Number.isFinite(val) ? (val * 100).toFixed(2) + '%' : '0%';
+    const parseDate = (str) => {
+      // Robust date parser for multiple formats:
+      // Accepts ISO strings, DD/MM/YYYY, DD-MM-YYYY, serial numbers from Sheets/Excel.
+      if (str === null || str === undefined) return null;
+
+      // Serial number (numbers) from Google Sheets/Excel
+      if (typeof str === "number" && Number.isFinite(str)) {
+        const base = new Date(Date.UTC(1899, 11, 30)); // 1899-12-30
+        const d = new Date(base.getTime() + str * 86400000);
+        return isNaN(d) ? null : d;
+      }
+
+      const s = String(str).trim();
+      if (!s) return null;
+
+      // Try native Date parse for ISO and RFC compliant strings
+      let d = new Date(s);
+      if (!isNaN(d)) return d;
+
+      // Support DD/MM/YYYY or DD-MM-YYYY with optional time HH:MM(:SS)
+      const m = s.match(/^\s*(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?\s*$/);
+      if (m) {
+        let day = +m[1];
+        let mon = +m[2];
+        let year = +m[3];
+        if (year < 100) year += 2000;
+        const hh = +m[4] || 0;
+        const mm = +m[5] || 0;
+        const ss = +m[6] || 0;
+        d = new Date(year, mon - 1, day, hh, mm, ss);
+        return isNaN(d) ? null : d;
+      }
+      return null;
+    };
+
+    // Global declaration for range filter buttons.  This will be populated later in the script
+    // and ensures that applyCurrentFilters and other functions can always access the variable
+    // without triggering the temporal dead zone of a `const` declaration.  See later in the
+    // script where `rangeButtons` is assigned to an array of button IDs.
+    let rangeButtons = [];
+
+    // Month abbreviations in Spanish for formatting dates
+    const monthNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    function formatPrettyDate(dateStr, withTime = false) {
+  const d = parseDate(dateStr);
+  if (!d) return String(dateStr || '');
+
+  const day = String(d.getDate()).padStart(2, '0');
+  const mon = monthNames[d.getMonth()] || '';
+  const base = `${day}-${mon}`;
+
+  if (!withTime) return base;
+
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${base} ${hh}:${mm}`;
+}
+    // Format a date string key (YYYY-MM-DD, YYYY-MM, or YYYY-Wxx) into a shorter label
+function formatDateLabel(label) {
+  if (!label) return '';
+
+  // semanas tipo 2026-W04
+  if (label.includes('-W')) {
+    const [year, week] = label.split('-W');
+    return `S${week}`;
+  }
+
+  // Si es YYYY-MM-DD o YYYY-MM
+  const parts = String(label).split('-');
+  if (parts.length === 3) {
+    const [y,m,d] = parts;
+    const month = monthNames[parseInt(m,10)-1] || m;
+    return `${d}-${month}`;
+  }
+  if (parts.length === 2) {
+    const [y,m] = parts;
+    const month = monthNames[parseInt(m,10)-1] || m;
+    return `${month} ${y}`;
+  }
+
+  // ✅ Si llega algo como "2025/12/23 10:54" o cualquier fecha completa:
+  // lo parseamos y lo mostramos como 23-Dic
+  const d = parseDate(label);
+  if (d) {
+    const day = String(d.getDate()).padStart(2,'0');
+    const mon = monthNames[d.getMonth()] || '';
+    return `${day}-${mon}`;
+  }
+
+  return String(label);
+}
+    // Storage for trades
+    let ALL_TRADES = [];
+    let FILTERED_TRADES = [];
+    let equityChart, pnlChart;
+
+    // User-defined capital (account size) used to calculate percentage returns
+    let accountSize = 10000;
+
+    // Additional charts for deeper analysis
+    let pairCountChart, pairWinChart, tfCountChart, tfWinChart;
+
+    // Flag to track whether a group-based filter is active (clicking PnL bar)
+    let groupFilterActive = false;
+    let equityType = 'money';
+    let pnlRange = 'monthly';
+  
+
+    // Crosshair plugin: draws a vertical line following the tooltip to act like a magnet
+    const crosshairPlugin = {
+      id: 'crosshair',
+      afterDatasetsDraw(chart, args, pluginOptions) {
+        const { ctx, chartArea: { top, bottom }, tooltip } = chart;
+        if (!tooltip || tooltip.opacity === 0) return;
+        const x = tooltip.caretX;
+        ctx.save();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.beginPath();
+        ctx.moveTo(x, top);
+        ctx.lineTo(x, bottom);
+        ctx.stroke();
+        ctx.restore();
+      }
+    };
+    // Register the plugin once
+    Chart.register(crosshairPlugin);
+    // Normalize trade row from CSV or JSON
+    function normalize(raw) {
+      // Extract fields with fallbacks
+      const date = raw.date ?? raw.Date ?? raw.fecha ?? raw.Fecha ?? '';
+      const pnl = raw.pnl ?? raw.PnL ?? raw.Pnl ?? raw.PNL ?? raw['pips sesion'] ?? raw['PIPS SESION'] ?? raw['pips semana'] ?? raw['PIPS SEMANA'] ?? 0;
+      const balance =
+  raw.balance ?? raw.Balance ?? raw.BALANCE ?? raw.capital ?? raw.Capital ?? raw.CAPITAL ?? null;
+
+const cashflow =
+  raw.cashflow ?? raw.Cashflow ?? raw.CASHFLOW ?? raw.deposito ?? raw.Deposito ?? raw.DEPOSITO ??
+  raw.retiro ?? raw.Retiro ?? raw.RETIRO ?? 0;
+      // Possible pips (lo máximo que se pudo capturar).  Buscamos distintos
+      // nombres habituales en los registros para soportar diferentes formatos.
+      // Determine possible pips (lo máximo que se pudo capturar).  Buscamos distintos nombres habituales en los registros para soportar diferentes formatos.
+      let possibleRaw = raw.possible ?? raw.possible_pips ?? raw.possiblePips ?? raw['pips posibles'] ?? raw['PIPS POSIBLES'] ?? raw['pips posibles sesion'] ?? raw['PIPS POSIBLES SESION'] ?? raw['pips posibles semana'] ?? raw['PIPS POSIBLES SEMANA'] ?? null;
+      // Also support English/uppercase column names 'Possible' or 'POSSIBLE'
+      if (possibleRaw === null || possibleRaw === undefined) {
+        if (raw.Possible !== undefined && raw.Possible !== null) {
+          possibleRaw = raw.Possible;
+        } else if (raw.POSSIBLE !== undefined && raw.POSSIBLE !== null) {
+          possibleRaw = raw.POSSIBLE;
+        }
+      }
+      const symbol = raw.symbol ?? raw.Symbol ?? raw.par ?? raw.PAR ?? '';
+      // OUTCOME: WIN / LOSS / BE
+const outcomeRaw =
+  raw.OUTCOME ?? raw.outcome ?? raw.Outcome ??
+  raw['OUTCOME'] ?? raw['Outcome'] ?? raw['outcome'] ?? '';
+const outcome = String(outcomeRaw).trim().toUpperCase();
+      let type = raw.side ?? raw.Side ?? raw['tipo'] ?? raw['TIPO D'] ?? '';
+      // Support English column 'Type'
+      if (!type) type = raw.Type ?? '';
+      const comment = raw.comment ?? raw.Comment ?? raw['confluencias'] ?? raw['CONFLUENCIAS'] ?? raw['set up'] ?? raw['SET UP'] ?? '';
+      let tf = raw['multi-s'] ?? raw['Multi-s'] ?? raw['Multi-s …'] ?? '';
+      // Support timeframe column 'TF' or lowercase 'tf'
+      if (!tf) tf = raw.TF ?? raw.tf ?? '';
+      const entry = raw.entry ?? raw.Entry ?? raw.entrada ?? raw.ENTRADA ?? raw['ENTRADA…'] ?? '';
+      const sl = raw.sl ?? raw.SL ?? '';
+      const target = raw.target ?? raw.Target ?? '';
+      let setup = raw.setup ?? raw['SET UP'] ?? '';
+      if (!setup) setup = raw.Setup ?? '';
+      const img = raw.image ?? raw.img ?? raw.screenshot ?? raw['captura'] ?? '';
+      // Extract stop loss, take profit, and max favorable excursion in pips
+      const slVal = raw.SL ?? raw.sl ?? raw['Sl'] ?? raw['sl'] ?? null;
+      const tpVal = raw.TP ?? raw.tp ?? raw['Tp'] ?? raw['tp'] ?? null;
+      const mfeVal = raw.MFE ?? raw.mfe ?? raw['Mfe'] ?? raw['mfe'] ?? null;
+      return {
+        date: String(date).trim(),
+        pnl: Number(pnl) || 0,
+        symbol: String(symbol).trim(),
+        outcome: outcome,
+        type: String(type).trim(),
+        comment: String(comment).trim(),
+        tf: String(tf).trim(),
+        entry: entry ? String(entry).trim() : '',
+        sl: sl ? String(sl).trim() : '',
+        target: target ? String(target).trim() : '',
+        setup: String(setup).trim(),
+        image: img ? String(img).trim() : '',
+        balance: (balance !== null && balance !== undefined && String(balance).trim() !== '') ? (Number(balance) || 0) : null,
+cashflow: Number(cashflow) || 0,
+        // Valor máximo posible en pips.  Puede ser nulo si el registro no lo incluye.
+        possible: possibleRaw !== null ? (Number(possibleRaw) || 0) : null
+        ,
+        // New properties for RR metrics (numeric).  Null if missing.
+        sl_pips: (slVal !== null && slVal !== undefined && String(slVal).trim() !== '') ? (Number(slVal) || 0) : null,
+        tp_pips: (tpVal !== null && tpVal !== undefined && String(tpVal).trim() !== '') ? (Number(tpVal) || 0) : null,
+        mfe_pips: (mfeVal !== null && mfeVal !== undefined && String(mfeVal).trim() !== '') ? (Number(mfeVal) || 0) : null
+      };
+    }
+    // Group trades by function key
+    function groupBy(trades, fn) {
+      const map = new Map();
+      trades.forEach(t => {
+        const d = parseDate(t.date);
+        if (!d) return;
+        const key = fn(d);
+        map.set(key, (map.get(key) || 0) + t.pnl);
+      });
+      return Array.from(map.entries()).sort((a,b) => a[0].localeCompare(b[0]));
+    }
+    const weekKey = (d) => {
+      const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+      const yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1));
+      const weekNo = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+      return `${date.getUTCFullYear()}-W${String(weekNo).padStart(2,'0')}`;
+    };
+    const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    // Day key for daily grouping
+    const dayKey = (d) => {
+      // return ISO date string (YYYY-MM-DD)
+      return d.toISOString().slice(0,10);
+    };
+    function computeTWR(trades) {
+  const sorted = trades
+    .slice()
+    .filter(t => t.balance !== null && t.balance !== undefined)
+    .sort((a,b) => (parseDate(a.date) ?? 0) - (parseDate(b.date) ?? 0));
+
+  if (sorted.length < 2) return 0;
+
+  let twr = 1;
+
+  // inicio del primer tramo
+  let startBal = sorted[0].balance;
+
+  for (let i = 1; i < sorted.length; i++) {
+    const t = sorted[i];
+
+    // si hay cashflow, cerramos el tramo justo ANTES del cashflow
+    if ((Number(t.cashflow) || 0) !== 0) {
+      const endBal = sorted[i - 1].balance;
+
+      if (startBal && startBal !== 0) {
+        twr *= (endBal / startBal);
+      }
+
+      // el siguiente tramo empieza DESPUÉS del cashflow
+      startBal = t.balance;
+    }
+  }
+
+  // cerrar el último tramo
+  const lastBal = sorted[sorted.length - 1].balance;
+  if (startBal && startBal !== 0) {
+    twr *= (lastBal / startBal);
+  }
+
+  return twr - 1; // retorno total (ej. 0.12 = +12%)
+}
+function computeTWRIndexSeries(trades) {
+  const sorted = (trades || [])
+    .slice()
+    .filter(t => t.balance !== null && t.balance !== undefined && isFinite(Number(t.balance)))
+    .sort((a,b) => (parseDate(a.date) ?? 0) - (parseDate(b.date) ?? 0));
+
+  if (!sorted.length) return [];
+
+  let twr = 1;
+  let startBal = Number(sorted[0].balance) || 0;
+
+  const out = [];
+
+  for (let i = 0; i < sorted.length; i++) {
+    const t = sorted[i];
+    const bal = Number(t.balance) || 0;
+    const cf  = Number(t.cashflow) || 0;
+
+    if (i > 0 && cf !== 0) {
+      const prevBal = Number(sorted[i - 1].balance) || 0;
+      if (startBal) twr *= (prevBal / startBal);
+      startBal = bal;
+    }
+
+    const idx = startBal ? (twr * (bal / startBal)) : twr;
+    out.push({ date: t.date, idx });
+  }
+
+  return out;
+}
+    // Metrics calculation
+function computeMetrics(trades) {
+  const n = trades.length;
+  const total = trades.reduce((acc, t) => acc + (Number(t.pnl) || 0), 0);
+  const avg = n ? total / n : 0;
+
+  // ===== Win rate basado en OUTCOME =====
+  const wins = trades.filter(t => String(t.outcome || '').toUpperCase() === 'WIN').length;
+const losses = trades.filter(t => String(t.outcome || '').toUpperCase() === 'LOSS').length;
+const winRate = (wins + losses) > 0 ? wins / (wins + losses) : 0;
+
+  // ===== Ordenar trades por fecha =====
+  const sorted = trades
+    .slice()
+    .sort((a, b) => (parseDate(a.date) ?? 0) - (parseDate(b.date) ?? 0));
+
+  // ===== Equity series (SIEMPRE válida) =====
+  let equity = 0;
+  const eqSeries = [];
+  sorted.forEach(t => {
+    equity += (Number(t.pnl) || 0);
+    eqSeries.push({
+      date: t.date,
+      equity: equity,
+      balance: (t.balance !== null && t.balance !== undefined && !isNaN(Number(t.balance))) ? (Number(t.balance) || 0) : null,
+      cashflow: Number(t.cashflow) || 0
+    });
+  });
+
+  // ===== MaxDD / Sharpe / Calmar coherentes (basados en TWR) =====
+  let maxDD = 0;
+  let sharpe = 0;
+  let calmar = 0;
+
+  const hasBalance = eqSeries.some(p => p.balance !== null && p.balance !== undefined && !isNaN(Number(p.balance)));
+
+  // Serie TWR (para equity% y retornos por periodo)
+  const twrSeries = hasBalance ? computeTWRIndexSeries(sorted) : [];
+
+  if (twrSeries.length) {
+    // Max drawdown sobre TWR
+    let peak = twrSeries[0].idx || 1;
+    let worstDD = 0;
+    for (const p of twrSeries) {
+      if (p.idx > peak) peak = p.idx;
+      const dd = peak ? (p.idx / peak) - 1 : 0;
+      if (dd < worstDD) worstDD = dd;
+    }
+    maxDD = worstDD;
+
+    // Retornos mensuales usando TWR
+    const monthMap = new Map();
+    for (const p of twrSeries) {
+      const d = parseDate(p.date);
+      if (!d) continue;
+      const key = monthKey(d);
+      if (!monthMap.has(key)) monthMap.set(key, { first: p.idx, last: p.idx });
+      else monthMap.get(key).last = p.idx;
+    }
+
+    const monthlyReturns = Array.from(monthMap.values())
+      .map(m => (m.first ? (m.last / m.first) - 1 : 0));
+
+    // Sharpe mensual anualizado
+    if (monthlyReturns.length >= 2) {
+      const mean = monthlyReturns.reduce((a, b) => a + b, 0) / monthlyReturns.length;
+      const variance = monthlyReturns.reduce((a, r) => a + Math.pow(r - mean, 2), 0) / (monthlyReturns.length - 1);
+      const stdev = Math.sqrt(variance);
+      sharpe = stdev ? (mean / stdev) * Math.sqrt(12) : 0;
+    } else {
+      sharpe = 0;
+    }
+
+    // Calmar = retorno anualizado / |maxDD|
+    const totalReturn = (twrSeries[twrSeries.length - 1].idx / (twrSeries[0].idx || 1)) - 1;
+    const months = Math.max(1, monthMap.size);
+    const annualReturn = Math.pow(1 + totalReturn, 12 / months) - 1;
+    calmar = Math.abs(maxDD) > 0 ? (annualReturn / Math.abs(maxDD)) : 0;
+  } else {
+    maxDD = 0;
+    sharpe = 0;
+    calmar = 0;
+  }
+
+  // ===== Profit factor / Payoff / Expectancy =====
+  let totalWins = 0, totalLosses = 0;
+  let countWins = 0, countLosses = 0;
+
+  trades.forEach(t => {
+    const p = Number(t.pnl) || 0;
+    if (p > 0) {
+      totalWins += p;
+      countWins++;
+    } else if (p < 0) {
+      totalLosses += Math.abs(p);
+      countLosses++;
+    }
+  });
+
+  const profitFactor = totalLosses === 0 ? 0 : (totalWins / totalLosses);
+  const avgWin = countWins ? totalWins / countWins : 0;
+  const avgLoss = countLosses ? -(totalLosses / countLosses) : 0;
+  const payoffRatio = avgLoss === 0 ? 0 : (avgWin / Math.abs(avgLoss));
+  const expectancy = (winRate * avgWin) + ((1 - winRate) * avgLoss);
+
+  return {
+    total,
+    avg,
+    winRate,
+    maxDD,
+    sharpe,
+    calmar,
+    eqSeries,
+    profitFactor,
+    payoffRatio,
+    expectancy,
+    twrSeries // ✅ IMPORTANTE: nuevo
+  };
+}
+    function computeCaptureMetrics(trades) {
+      const dayMap = {};
+      const weekMap = {};
+      trades.forEach(t => {
+        const date = parseDate(t.date);
+        if (!date) return;
+        const day = dayKey(date);
+        const week = weekKey(date);
+        dayMap[day] = dayMap[day] || { real: 0, possible: 0 };
+        weekMap[week] = weekMap[week] || { real: 0, possible: 0 };
+        // real always accumulates from pnl
+        dayMap[day].real  += Number(t.pnl) || 0;
+        weekMap[week].real += Number(t.pnl) || 0;
+        // only accumulate possible if the property exists and is finite
+        if (t.possible != null && isFinite(t.possible)) {
+          dayMap[day].possible  += Number(t.possible);
+          weekMap[week].possible += Number(t.possible);
+        }
+      });
+      // Compute ratios and extra pips
+      let dayCaptureSum = 0;
+      let dayCount = 0;
+      let dayExtra = 0;
+      Object.keys(dayMap).forEach(key => {
+        const { real, possible } = dayMap[key];
+        if (possible > 0) {
+          dayCaptureSum += real / possible;
+          dayCount++;
+          dayExtra += (possible - real);
+        }
+      });
+      let weekCaptureSum = 0;
+      let weekCount = 0;
+      let weekExtra = 0;
+      Object.keys(weekMap).forEach(key => {
+        const { real, possible } = weekMap[key];
+        if (possible > 0) {
+          weekCaptureSum += real / possible;
+          weekCount++;
+          weekExtra += (possible - real);
+        }
+      });
+      const dayAvgCapture  = dayCount  ? dayCaptureSum  / dayCount  : 0;
+      const weekAvgCapture = weekCount ? weekCaptureSum / weekCount : 0;
+      return {
+        dayAvgCapture,
+        dayTotalExtra: dayExtra,
+        weekAvgCapture,
+        weekTotalExtra: weekExtra
+      };
+    }
+function getField(obj, name) {
+  if (!obj) return undefined;
+  const target = String(name).trim().toLowerCase();
+  const key = Object.keys(obj).find(k => String(k).trim().toLowerCase() === target);
+  return key ? obj[key] : undefined;
+}
+
+function toNum(v) {
+  if (v === null || v === undefined) return NaN;
+  // Convierte strings tipo "60.00", " 60 ", "$6.00" -> 60
+  const s = String(v).trim().replace(/[^0-9.\-]/g, '');
+  if (s === '' || s === '-' || s === '.' || s === '-.' ) return NaN;
+  return Number(s);
+}
+    /**
+     * Compute risk‑reward (RR) metrics for a set of trades.  Each trade should
+     * include `sl_pips`, `tp_pips` and `mfe_pips` values.  The function returns
+     * the average RR actually achieved (TP/SL), the average RR potential offered
+     * by the market (MFE/SL), the median of the potential RR values, and the
+     * 80th percentile of the potential RR values.  A trade is skipped in the
+     * averages if its `sl_pips` is zero or missing.
+     */
+    function computeRRMetrics(trades) {
+      let sumReal = 0, countReal = 0;
+      let sumPot  = 0, countPot  = 0;
+      const potList = [];
+      trades.forEach(t => {
+        const sl = t.sl_pips;
+        if (!sl || !Number.isFinite(sl) || sl === 0) return;
+        const tp  = t.tp_pips;
+        const mfe = t.mfe_pips;
+        if (tp != null && isFinite(tp)) {
+          sumReal += tp / sl;
+          countReal++;
+        }
+        if (mfe != null && isFinite(mfe)) {
+          const r = mfe / sl;
+          sumPot += r;
+          countPot++;
+          potList.push(r);
+        }
+      });
+      const avgReal = countReal ? (sumReal / countReal) : 0;
+      const avgPot  = countPot  ? (sumPot  / countPot)  : 0;
+      const avgGap  = (countReal && countPot) ? (avgPot - avgReal) : 0;
+      potList.sort((a,b) => a - b);
+      let median = 0, p80 = 0;
+      const n = potList.length;
+      if (n > 0) {
+        const mid = Math.floor(n / 2);
+        median = n % 2 ? potList[mid] : (potList[mid - 1] + potList[mid]) / 2;
+        const idx = 0.8 * (n - 1);
+        const lower = Math.floor(idx);
+        const upper = Math.ceil(idx);
+        p80 = (lower === upper) ? potList[lower] : (potList[lower] + (potList[upper] - potList[lower]) * (idx - lower));
+      }
+      return { avgReal, avgPot, avgGap, medianPot: median, p80Pot: p80 };
+    }
+
+    /**
+     * Compute statistics on the max favourable excursion (MFE) values in pips.
+     * Returns the 80% trimmed mean (removing 10% lowest and 10% highest values)
+     * and the 80th percentile (p80) of the distribution.  Trades with a null or
+     * non‑finite `mfe_pips` value are ignored.
+     */
+    /**
+     * Compute statistics on the max favourable excursion (MFE) values.  This helper
+     * can operate either on raw pips or on risk‑adjusted ratios.  When
+     * `usePips` is true (the default), it uses the `mfe_pips` property on
+     * trades.  Otherwise it derives a ratio by dividing the MFE in pips by
+     * the absolute value of the stop‑loss in pips.  Trades lacking an
+     * appropriate MFE value or, in ratio mode, a valid stop size are
+     * ignored.  The function returns two values: the mean of the central
+     * 80 % of the distribution (10 % trimmed mean) and the 80th percentile.
+     *
+     * @param {Array<Object>} trades List of trade objects to process.
+     * @param {boolean} [usePips=true] Whether to compute using raw pips or
+     *   risk‑adjusted ratios.  If false, the ratio is `mfe_pips / abs(sl_pips)`.
+     * @returns {{avg80: number, p80: number}} The 80 % trimmed mean and
+     *   80th percentile of the chosen values.
+     */
+    function computeMFEStats(trades, usePips = true) {
+      const values = [];
+      trades.forEach(t => {
+        const mfe = t.mfe_pips;
+        if (mfe == null || !isFinite(mfe)) return;
+        if (usePips) {
+          values.push(Number(mfe));
+        } else {
+          const sl = t.sl_pips;
+          if (sl == null || !isFinite(sl) || sl === 0) return;
+          values.push(mfe / Math.abs(sl));
+        }
+      });
+      if (!values.length) return { avg80: 0, p80: 0 };
+      values.sort((a, b) => a - b);
+      const n = values.length;
+      // Calculate trimmed mean by removing the lowest 10 % and highest 10 %
+      const lowIndex = Math.floor(n * 0.1);
+      const highIndex = Math.ceil(n * 0.9) - 1;
+      const trimmed = values.slice(lowIndex, highIndex + 1);
+      const sumTrim = trimmed.reduce((acc, val) => acc + val, 0);
+      let avg80 = trimmed.length ? sumTrim / trimmed.length : 0;
+      // Historically this metric has been scaled by 0.8 to correspond
+      // with the proportion of data retained after trimming (80 %).  Keep
+      // this behaviour so that existing dashboards retain comparable
+      // values.
+      avg80 = avg80 * 0.8;
+      // 80th percentile using linear interpolation
+      const pIdx = 0.8 * (n - 1);
+      const lower = Math.floor(pIdx);
+      const upper = Math.ceil(pIdx);
+      const p80 = (lower === upper)
+        ? values[lower]
+        : (values[lower] + (values[upper] - values[lower]) * (pIdx - lower));
+      return { avg80, p80 };
+    }
+// TP óptimo considerando tu estrategia:
+// - Si llega a 1R, tomas 50% (ganas +0.5R)
+// - NO mueves a BE hasta 2R
+// - Si llega a 2R, mueves SL a BE y ya no pierdes (te quedas con +0.5R)
+// - Si llega al TP final (tpR), cierras el 50% restante a tpR => total = 0.5R + 0.5*tpR
+function computeTPOptimoConParciales(trades) {
+  const rows = [];
+
+  for (const t of trades) {
+    const sl  = Number(t.sl_pips);
+    const mfe = Number(t.mfe_pips);
+    if (!Number.isFinite(sl) || sl <= 0) continue;
+    if (!Number.isFinite(mfe) || mfe <= 0) continue;
+    rows.push({ sl, mfe });
+  }
+
+  if (rows.length < 3) return null;
+
+  const maxR = Math.max(...rows.map(r => r.mfe / r.sl));
+  let bestTPR = null;
+  let bestExp = -Infinity;
+
+  // buscamos TP desde 1R hasta maxR (porque si tpR < 1 no tiene sentido con tu parcial)
+  for (let tpR = 1.0; tpR <= maxR; tpR += 0.1) {
+    let sum = 0;
+
+    for (const r of rows) {
+      const mfeR = r.mfe / r.sl;
+
+      // Resultado por trade, en R, siguiendo tu lógica
+      let resultR;
+
+      if (mfeR < 1) {
+        // nunca llegó al parcial, puede haber sido SL => -1R (modelo base)
+        resultR = -1;
+      } else if (mfeR < 2) {
+        // llegó a 1R (parcial) pero no a 2R, asumimos que se dio la vuelta y terminó BE neto en la segunda mitad
+        // => total = +0.5R
+        resultR = 0.5;
+      } else if (mfeR < tpR) {
+        // llegó a 2R, mueves SL a BE, si no llegó al TP final, termina BE en la segunda mitad
+        // => total = +0.5R
+        resultR = 0.5;
+      } else {
+        // llegó al TP final:
+        // 50% cerrado en 1R => +0.5R
+        // 50% restante cerrado en tpR => +0.5*tpR
+        resultR = 0.5 + 0.5 * tpR;
+      }
+
+      sum += resultR;
+    }
+
+    const exp = sum / rows.length;
+    if (exp > bestExp) {
+      bestExp = exp;
+      bestTPR = tpR;
+    }
+  }
+
+  return { tpR: bestTPR, expectancy: bestExp };
+}
+
+
+// TP óptimo “máx. expectancia” en PIPS (tu KPI actual, lo dejamos intacto)
+function computeTPOptimoMaxExpectancia(trades) {
+  const valid = trades.filter(t =>
+    Number.isFinite(t.mfe_pips) && t.mfe_pips >= 0 &&
+    Number.isFinite(t.sl_pips) && t.sl_pips > 0
+  );
+
+  if (!valid.length) return null;
+
+  const maxMFE = Math.max(...valid.map(t => t.mfe_pips));
+  const step = 5;
+
+  let bestTP = null;
+  let bestExpectancy = -Infinity;
+
+  for (let tp = step; tp <= maxMFE; tp += step) {
+    let total = 0;
+
+    for (const t of valid) {
+      if (t.mfe_pips >= tp) {
+        total += tp;
+      } else {
+        total -= t.sl_pips;
+      }
+    }
+
+    const expectancy = total / valid.length;
+
+    if (expectancy > bestExpectancy) {
+      bestExpectancy = expectancy;
+      bestTP = tp;
+    }
+  }
+
+  return { tp: bestTP, expectancy: bestExpectancy };
+}
+function getTradeMinutes(trade) {
+  const d = parseDate(trade.date);
+  if (!d) return null;
+  return d.getHours() * 60 + d.getMinutes();
+}
+function timeToMinutes(hhmm) {
+  if (!hhmm) return 0;
+  const parts = String(hhmm).split(':');
+  const hh = parseInt(parts[0], 10) || 0;
+  const mm = parseInt(parts[1], 10) || 0;
+  return hh * 60 + mm;
+}
+    // Render metrics and charts
+    function renderAll(trades) {
+
+// ===== 1) Aplicar filtros combinables (Hora + Par) =====
+let filteredTrades = Array.isArray(trades) ? trades.slice() : [];
+
+// 1A) Filtro por PAR
+const pairEl = document.getElementById('pairFilter');
+if (pairEl && pairEl.value && pairEl.value !== 'ALL') {
+  const target = pairEl.value.toString().trim().toUpperCase();
+  filteredTrades = filteredTrades.filter(t =>
+    (t.symbol ?? '').toString().trim().toUpperCase() === target
+  );
+}
+
+// 1B) Filtro por HORA (usa tus variables hourFrom/hourTo)
+const fromMin = timeToMinutes(document.getElementById('timeFrom')?.value || '00:00');
+const toMin   = timeToMinutes(document.getElementById('timeTo')?.value || '23:59');
+
+filteredTrades = filteredTrades.filter(t => {
+  const m = getTradeMinutes(t);
+  if (m === null) return false;
+  return m >= fromMin && m <= toMin;
+});
+FILTERED_TRADES = filteredTrades;
+ // KPI: TP Óptimo (máx. expectancia) en pips
+try {
+const res = computeTPOptimoMaxExpectancia(filteredTrades);
+  const el = document.getElementById('kpiTPOptimo');
+  if (el) el.textContent = (res && Number.isFinite(res.tp)) ? String(Math.round(res.tp)) : '0';
+} catch (err) {
+  console.error('Error TP Óptimo:', err);
+}
+
+// KPI: TP Óptimo (con parciales) en R
+try {
+const resParcial = computeTPOptimoConParciales(filteredTrades);
+  const elParcial = document.getElementById('kpiTPOptimoParcial');
+  if (elParcial) {
+    elParcial.textContent =
+      (resParcial && Number.isFinite(resParcial.tpR))
+        ? (resParcial.tpR.toFixed(1) + 'R')
+        : '0R';
+  }
+} catch (err) {
+  console.error('Error TP Óptimo (con parciales):', err);
+  const elParcial = document.getElementById('kpiTPOptimoParcial');
+  if (elParcial) elParcial.textContent = '0R';
+}
+      // Hide reset button if not in group filter mode
+      const resetBtn = $('resetGroupBtn');
+      if (resetBtn && !groupFilterActive) {
+        resetBtn.style.display = 'none';
+      }
+const metrics = computeMetrics(filteredTrades);
+// Return (%) — compuesto por trade usando el BALANCE ANTERIOR a cada trade.
+// Esto NO se distorsiona con depósitos/retiros (cashflows).
+{
+  // Ordenamos por fecha/hora por seguridad
+const sorted = filteredTrades
+    .slice()
+    .sort((a, b) => (parseDate(a.date) ?? 0) - (parseDate(b.date) ?? 0));
+
+  let prevBalance = null;     // balance DESPUÉS del evento anterior
+  let compounded = 1;         // producto de (1 + r_i)
+
+  for (const t of sorted) {
+    const balAfter = (t.balance !== null && t.balance !== undefined) ? Number(t.balance) : null;
+    const pnl = Number(t.pnl) || 0;
+    const cf  = Number(t.cashflow) || 0;
+
+    // Si no hay balance válido, no podemos usar esta lógica
+    if (balAfter === null || !isFinite(balAfter)) continue;
+
+    // Balance ANTES de este evento:
+    // - Si ya tenemos prevBalance, ese es el "antes"
+    // - Si es el primer evento, lo inferimos: before = after - pnl - cashflow
+    const balBefore = (prevBalance !== null && isFinite(prevBalance))
+      ? prevBalance
+      : (balAfter - pnl - cf);
+
+    // Si esto es un TRADE (pnl != 0), calculamos rendimiento del trade
+    // usando el balance ANTES del trade.
+    if (pnl !== 0 && balBefore > 0) {
+      const r = pnl / balBefore;     // ejemplo: -5.11 / 1083.50 = -0.0047
+      compounded *= (1 + r);
+    }
+
+    // Actualizamos prevBalance al balance DESPUÉS de este evento
+    prevBalance = balAfter;
+  }
+
+  const returnFraction = compounded - 1;
+  $('kpiReturn').textContent = pct(returnFraction);
+}
+      $('kpiTotal').textContent = fmt2(metrics.total);
+      $('kpiAvg').textContent = fmt2(metrics.avg);
+      $('kpiWin').textContent = pct(metrics.winRate);
+      $('kpiDD').textContent = pct(metrics.maxDD);
+      $('kpiSharpe').textContent = fmt2(metrics.sharpe);
+      $('kpiCalmar').textContent = fmt2(metrics.calmar);
+      // Set additional KPIs
+      $('kpiProfitFactor').textContent = fmt2(metrics.profitFactor);
+      $('kpiPayoff').textContent = fmt2(metrics.payoffRatio);
+      $('kpiExpectancy').textContent = fmt2(metrics.expectancy);
+
+      // Compute Risk:Reward metrics and update KPI cards.  These metrics
+      // measure the average RR achieved (real) and the average RR potential
+      // offered by the market.  The gap RR metric has been removed.
+const rrMetrics = computeRRMetrics(filteredTrades);
+      $('kpiRRReal').textContent = (Number(rrMetrics.avgReal).toFixed(2) + 'R');
+      $('kpiRRPot').textContent  = (Number(rrMetrics.avgPot).toFixed(2) + 'R');
+      // Compute MFE statistics (trimmed mean and 80th percentile).  We
+      // compute these both on a risk‑adjusted basis (ratio of MFE to
+      // stop‑loss size) and on raw pips.  This provides guidance on
+      // potential risk:reward tuning and absolute pip performance.
+const mfeRatioStats = computeMFEStats(filteredTrades, false);
+const mfePipsStats  = computeMFEStats(filteredTrades, true);
+      if ($('kpiMFEAvg80')) {
+        // Display ratio statistics in the "MFE promedio 80%" card.  Two
+        // decimal places are shown for RR values.
+        $('kpiMFEAvg80').textContent = Number(mfeRatioStats.avg80).toFixed(2);
+      }
+      if ($('kpiMFEP80')) {
+        // Display ratio percentile as the ideal TP in RR terms.
+        $('kpiMFEP80').textContent  = Number(mfeRatioStats.p80).toFixed(2);
+      }
+      if ($('kpiMFEAvg80Pips')) {
+        // Show the same statistics in pips.  We round to whole pips for clarity.
+        $('kpiMFEAvg80Pips').textContent  = Number(mfePipsStats.avg80).toFixed(0);
+      }
+      if ($('kpiMFEP80Pips')) {
+        $('kpiMFEP80Pips').textContent = Number(mfePipsStats.p80).toFixed(0);
+      }
+updateEquityChart(metrics);
+updatePnlChart(filteredTrades);
+renderTable(filteredTrades);
+    }
+function updateEquityChart(metricsOrEqSeries) {
+  const metrics = (metricsOrEqSeries && metricsOrEqSeries.eqSeries) ? metricsOrEqSeries : null;
+  const eqSeries = metrics ? (metrics.eqSeries || []) : (Array.isArray(metricsOrEqSeries) ? metricsOrEqSeries : []);
+
+  const labels = eqSeries.map(p => p.date);
+
+  const hasBalance = eqSeries.some(p => p.balance !== null && p.balance !== undefined && !isNaN(Number(p.balance)));
+
+  const equityMoney = eqSeries.map(p => {
+    if (hasBalance) return Number(p.balance) || 0;
+    return (accountSize || 0) + (Number(p.equity) || 0);
+  });
+
+  let data;
+  if (equityType === 'percentage') {
+    const twrSeries = metrics && Array.isArray(metrics.twrSeries) ? metrics.twrSeries : [];
+    if (hasBalance && twrSeries.length) {
+      data = twrSeries.map(p => (p.idx - 1) * 100);
+    } else {
+      const base = equityMoney[0] || 1;
+      data = equityMoney.map(v => base ? ((v / base) - 1) * 100 : 0);
+    }
+  } else {
+    data = equityMoney;
+  }
+
+  const mainLabel = equityType === 'percentage' ? 'Equity (%)' : 'Equity ($)';
+
+  const datasets = [{
+    label: mainLabel,
+    data,
+    fill: true,
+    borderColor: 'rgb(59,130,246)',
+    backgroundColor: 'rgba(59,130,246,0.3)',
+    pointRadius: 0,
+    tension: 0.3,
+    borderWidth: 2
+  }];
+
+  if (equityChart) equityChart.destroy();
+  equityChart = new Chart($("equityChart"), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false, axis: 'x' },
+      plugins: {
+        legend: { display: datasets.length > 1 },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          callbacks: {
+            label: function(ctx) {
+              const v = Number(ctx.raw) || 0;
+              return equityType === 'percentage'
+                ? `${ctx.dataset.label}: ${v.toFixed(2)}%`
+                : `${ctx.dataset.label}: ${v.toFixed(2)}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: '#94a3b8',
+            callback: function(value, index) {
+              const lab = labels[index];
+              return formatDateLabel(lab);
+            }
+          },
+          grid: { color: 'rgba(255,255,255,0.05)' }
+        },
+        y: {
+          ticks: {
+            color: '#94a3b8',
+            callback: function(value) {
+              return equityType === 'percentage'
+                ? Number(value).toFixed(2) + '%'
+                : Number(value).toFixed(2);
+            }
+          },
+          grid: { color: 'rgba(255,255,255,0.05)' }
+        }
+      }
+    }
+  });
+}
+    function updatePnlChart(trades) {
+  // Construimos retornos por periodo usando TWR si hay balance.
+  const m = computeMetrics(trades);
+  const hasTWR = m.twrSeries && m.twrSeries.length;
+
+  let label;
+  if (pnlRange === 'daily') label = 'Retorno diario (%)';
+  else if (pnlRange === 'weekly') label = 'Retorno semanal (%)';
+  else label = 'Retorno mensual (%)';
+
+  let labels = [];
+  let data = [];
+
+  if (hasTWR) {
+    const periodMap = new Map();
+
+    for (const p of m.twrSeries) {
+      const d = parseDate(p.date);
+      if (!d) continue;
+
+      const key =
+        (pnlRange === 'daily')  ? dayKey(d)  :
+        (pnlRange === 'weekly') ? weekKey(d) :
+                                 monthKey(d);
+
+      if (!periodMap.has(key)) periodMap.set(key, { first: p.idx, last: p.idx });
+      else periodMap.get(key).last = p.idx;
+    }
+
+    labels = Array.from(periodMap.keys());
+    data = labels.map(k => {
+      const v = periodMap.get(k);
+      if (!v || !v.first) return 0;
+      return ((v.last / v.first) - 1) * 100;
+    });
+  } else {
+    // fallback anterior si no hay balance: PnL / accountSize (no compuesto)
+    let groups;
+    if (pnlRange === 'daily') groups = groupBy(trades, dayKey);
+    else if (pnlRange === 'weekly') groups = groupBy(trades, weekKey);
+    else groups = groupBy(trades, monthKey);
+
+    labels = groups.map(([k]) => k);
+    const startCapital = accountSize || 1;
+    data = groups.map(([k, sumPnL]) => (startCapital !== 0 ? (sumPnL / startCapital) * 100 : 0));
+  }
+
+  if (pnlChart) pnlChart.destroy();
+  pnlChart = new Chart($("pnlChart"), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: label,
+        data: data,
+        backgroundColor: 'rgba(59,130,246,0.5)',
+        borderColor: 'rgb(59,130,246)',
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false, axis: 'x' },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          callbacks: {
+            label: function(ctx) {
+              const v = Number(ctx.raw) || 0;
+              return `${ctx.dataset.label}: ${v.toFixed(2)}%`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: '#94a3b8',
+            maxRotation: 75,
+            minRotation: 30,
+            callback: function(value, index) {
+              const lab = labels[index];
+              return formatDateLabel(lab);
+            }
+          },
+          grid: { color: 'rgba(255,255,255,0.05)' }
+        },
+        y: {
+          ticks: {
+            color: '#94a3b8',
+            callback: function(value) {
+              return Number(value).toFixed(2) + '%';
+            }
+          },
+          grid: { color: 'rgba(255,255,255,0.05)' }
+        }
+      },
+      onClick: (event, elements) => {
+        if (elements.length) {
+          const index = elements[0].index;
+          const key = labels[index];
+          filterTradesByGroup(key);
+        }
+      }
+    }
+  });
+
+  // After updating PnL chart, refresh analysis charts too
+  updateAnalysisCharts(trades);
+}
+    // Update analysis charts (distribution and win rates)
+    function updateAnalysisCharts(trades) {
+      // Determine starting equity to convert PnL sums into returns; use first entry of equity series
+      const m = computeMetrics(trades);
+      const startEquity = m.eqSeries && m.eqSeries.length ? m.eqSeries[0].equity : 1;
+      // Helper to compute counts and win rates by key (symbol or timeframe)
+      function computeStats(keyExtractor) {
+        const counts = {};
+        const wins   = {};
+        trades.forEach(t => {
+          const key = keyExtractor(t) || 'Otro';
+          counts[key] = (counts[key] || 0) + 1;
+          wins[key]   = (wins[key] || 0) + (t.pnl > 0 ? 1 : 0);
+        });
+        const labels = Object.keys(counts);
+        const countData = labels.map(k => counts[k]);
+        const winRateData = labels.map(k => counts[k] ? (wins[k] / counts[k]) * 100 : 0);
+        return { labels, countData, winRateData };
+      }
+      // Data for symbols
+      const symbolStats = computeStats(t => t.symbol || '');
+      // Data for timeframe (time frame or session)
+      const tfStats     = computeStats(t => t.tf || '');
+      // Colors generator: generate distinct colors based on index
+      function genColors(count) {
+        const base = [59, 130, 246];
+        const colors = [];
+        for (let i=0; i < count; i++) {
+          const factor = 0.6 + (i / count) * 0.4;
+          const [r,g,b] = base;
+          colors.push(`rgba(${Math.floor(r*factor)},${Math.floor(g*factor)},${Math.floor(b*factor)},0.7)`);
+        }
+        return colors;
+      }
+      const symbolColors = genColors(symbolStats.labels.length);
+      const tfColors     = genColors(tfStats.labels.length);
+      // Destroy existing charts if they exist
+      if (pairCountChart) pairCountChart.destroy();
+      if (pairWinChart) pairWinChart.destroy();
+      if (tfCountChart) tfCountChart.destroy();
+      if (tfWinChart) tfWinChart.destroy();
+      // Create charts
+      const ctx1 = $("pairCountChart");
+      pairCountChart = new Chart(ctx1, {
+        type: 'doughnut',
+        data: {
+          labels: symbolStats.labels,
+          datasets: [{
+            data: symbolStats.countData,
+            backgroundColor: symbolColors,
+            borderColor: symbolColors.map(c => c.replace(',0.7', ',1')),
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: true, position:'bottom', labels: { color: '#94a3b8' } } }
+        }
+      });
+      const ctx2 = $("pairWinChart");
+      pairWinChart = new Chart(ctx2, {
+        type: 'bar',
+        data: {
+          labels: symbolStats.labels,
+          datasets: [{
+            label: 'Win rate %',
+            data: symbolStats.winRateData,
+            backgroundColor: symbolColors,
+            borderColor: symbolColors.map(c => c.replace(',0.7', ',1')),
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#94a3b8' }, grid: { display:false } },
+            y: { ticks: { color: '#94a3b8' }, grid: { color:'rgba(255,255,255,0.05)' }, beginAtZero: true, max: 100 }
+          }
+        }
+      });
+      const ctx3 = $("tfCountChart");
+      tfCountChart = new Chart(ctx3, {
+        type: 'doughnut',
+        data: {
+          labels: tfStats.labels,
+          datasets: [{
+            data: tfStats.countData,
+            backgroundColor: tfColors,
+            borderColor: tfColors.map(c => c.replace(',0.7', ',1')),
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display:true, position:'bottom', labels: { color: '#94a3b8' } } }
+        }
+      });
+      const ctx4 = $("tfWinChart");
+      tfWinChart = new Chart(ctx4, {
+        type: 'bar',
+        data: {
+          labels: tfStats.labels,
+          datasets: [{
+            label: 'Win rate %',
+            data: tfStats.winRateData,
+            backgroundColor: tfColors,
+            borderColor: tfColors.map(c => c.replace(',0.7', ',1')),
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color:'#94a3b8' }, grid: { display:false } },
+            y: { ticks: { color:'#94a3b8' }, grid: { color:'rgba(255,255,255,0.05)' }, beginAtZero: true, max: 100 }
+          }
+        }
+      });
+    }
+    // Render table rows
+    function renderTable(trades) {
+      const tbody = $('tradesBody');
+      const search = $('searchInput').value.toLowerCase().trim();
+      const filtered = !search ? trades : trades.filter(t => {
+        return (t.symbol && t.symbol.toLowerCase().includes(search)) ||
+               (t.type && t.type.toLowerCase().includes(search)) ||
+               (t.comment && t.comment.toLowerCase().includes(search)) ||
+               (t.date && t.date.toLowerCase().includes(search));
+      });
+      $('tradeStats').textContent = `${filtered.length} trade${filtered.length === 1 ? '' : 's'}`;
+      tbody.innerHTML = '';
+      filtered.sort((a,b) => (parseDate(a.date) ?? 0) - (parseDate(b.date) ?? 0)).forEach(t => {
+        const tr = document.createElement('tr');
+        const cls = t.pnl >= 0 ? 'pos' : 'neg';
+        tr.innerHTML = `<td class="mono">${formatPrettyDate(t.date, true)}</td><td>${t.symbol || '-'}</td><td>${t.type || '-'}</td><td class="mono ${cls}">${fmt2(t.pnl)}</td><td>${t.comment || ''}</td>`;
+        tr.addEventListener('click', () => showTradeDetails(t));
+        tbody.appendChild(tr);
+      });
+    }
+    // Show trade detail modal
+    function showTradeDetails(trade) {
+      const modal = $('detailModal');
+      const grid = $('detailGrid');
+      const images = $('detailImages');
+      grid.innerHTML = '';
+      images.innerHTML = '';
+      const detailPairs = [
+        { label: 'Fecha', value: formatPrettyDate(trade.date, true) },
+        { label: 'Símbolo', value: trade.symbol },
+        { label: 'Tipo', value: trade.type },
+        { label: 'Timeframe', value: trade.tf },
+      // Format numeric values to two decimals where possible
+      { label: 'Entrada', value: isNaN(Number(trade.entry)) ? trade.entry : fmt2(Number(trade.entry)) },
+      { label: 'Stop', value: isNaN(Number(trade.sl)) ? trade.sl : fmt2(Number(trade.sl)) },
+      { label: 'Objetivo', value: isNaN(Number(trade.target)) ? trade.target : fmt2(Number(trade.target)) },
+        { label: 'PnL', value: fmt2(trade.pnl) },
+        { label: 'Setup', value: trade.setup },
+        { label: 'Comentario', value: trade.comment }
+      ];
+      detailPairs.forEach(item => {
+        const div = document.createElement('div');
+        div.innerHTML = `<span>${item.label}</span><strong>${item.value || '-'}</strong>`;
+        grid.appendChild(div);
+      });
+      // If image field has multiple URLs separated by comma or semicolon, split them
+      if (trade.image) {
+        const urls = trade.image.split(/[,;]/).map(u => u.trim()).filter(u => u);
+        urls.forEach(u => {
+          const img = document.createElement('img');
+          img.src = u;
+          img.alt = 'captura de trade';
+          images.appendChild(img);
+        });
+      }
+      modal.style.display = 'flex';
+    }
+    $('closeModalBtn').addEventListener('click', () => {
+      $('detailModal').style.display = 'none';
+    });
+    // Search bar filtering
+    $('searchInput').addEventListener('input', () => {
+      renderTable(FILTERED_TRADES);
+    });
+    // Range filters
+    // Define rangeButtons on the outer scope so it is always available when applyCurrentFilters runs.
+    // We assign here instead of using const declaration to avoid temporal dead‑zone issues.
+    rangeButtons = ['todayBtn','weekBtn','monthBtn','ytdBtn','customBtn'];
+    rangeButtons.forEach(id => {
+      $(id).addEventListener('click', () => {
+        rangeButtons.forEach(btnId => $(btnId).classList.remove('active'));
+        $(id).classList.add('active');
+        if (id === 'customBtn') {
+          $('customRange').style.display = 'flex';
+        } else {
+          $('customRange').style.display = 'none';
+          applyRangePreset(id);
+        }
+      });
+    });
+    $('applyRangeBtn').addEventListener('click', () => {
+      const start = $('startDate').value;
+      const end   = $('endDate').value;
+      if (!start || !end) {
+        alert('Selecciona ambas fechas para el rango.');
+        return;
+      }
+      $('customBtn').classList.add('active');
+      rangeButtons.filter(id => id !== 'customBtn').forEach(id => $(id).classList.remove('active'));
+      applyRangeCustom(start, end);
+    });
+    // Toggle equity chart
+    Array.from($('equityToggle').children).forEach(btn => {
+  btn.addEventListener('click', () => {
+    Array.from($('equityToggle').children).forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    equityType = btn.getAttribute('data-type');
+
+    const metrics = computeMetrics(FILTERED_TRADES);
+    updateEquityChart(metrics);
+  });
+});
+
+    // Toggle PnL chart range
+    Array.from($('pnlToggle').children).forEach(btn => {
+      btn.addEventListener('click', () => {
+        Array.from($('pnlToggle').children).forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        pnlRange = btn.getAttribute('data-range');
+        updatePnlChart(FILTERED_TRADES);
+      });
+    });
+
+    // Reset group filter button
+function setActiveRangeButton(idOrNull) {
+  const btnIds = ['todayBtn','weekBtn','monthBtn','ytdBtn','customBtn'];
+  btnIds.forEach(id => {
+    const b = document.getElementById(id);
+    if (b) b.classList.toggle('active', idOrNull === id);
+  });
+}
+
+const applyFiltersBtn = document.getElementById('applyFiltersBtn');
+if (applyFiltersBtn) {
+  applyFiltersBtn.addEventListener('click', () => {
+    applyCurrentFilters();
+  });
+}
+
+const resetFiltersBtn = document.getElementById('resetFiltersBtn');
+if (resetFiltersBtn) {
+  resetFiltersBtn.addEventListener('click', () => {
+    // Par
+    const pf = document.getElementById('pairFilter');
+    if (pf) pf.value = 'ALL';
+
+    // Hora
+    const hf = document.getElementById('timeFrom');
+    const ht = document.getElementById('timeTo');
+    if (hf) hf.value = '00:00';
+    if (ht) ht.value = '23:59';
+
+    // Custom range
+    const cr = document.getElementById('customRange');
+    if (cr) cr.style.display = 'none';
+    const s = document.getElementById('startDate');
+    const e = document.getElementById('endDate');
+    if (s) s.value = '';
+    if (e) e.value = '';
+
+    // Quitar rango activo (histórico completo)
+    setActiveRangeButton(null);
+
+    // Render histórico completo
+    renderAll(ALL_TRADES);
+  });
+}
+// ===== Reset group filter (Ver todo) =====
+const resetGroupBtn = document.getElementById('resetGroupBtn');
+
+if (resetGroupBtn) {
+  resetGroupBtn.addEventListener('click', () => {
+    groupFilterActive = false;
+    resetGroupBtn.style.display = 'none';
+
+    // Volver a aplicar los filtros normales (fecha / hora / par)
+    applyCurrentFilters();
+  });
+}
+    // Apply range preset logic
+    function applyRangePreset(id) {
+      if (!ALL_TRADES.length) { FILTERED_TRADES = []; renderAll(ALL_TRADES); return; }
+      const now = new Date();
+      let startDate, endDate;
+      switch(id) {
+        case 'todayBtn':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          endDate   = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1);
+          break;
+        case 'weekBtn':
+          const day = now.getDay() || 7;
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day + 1);
+          endDate   = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+          break;
+          case 'monthBtn':
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          endDate   = new Date(now.getFullYear(), now.getMonth()+1, 1);
+          break;
+        case 'ytdBtn':
+          startDate = new Date(now.getFullYear(), 0, 1);
+          endDate   = new Date(now.getFullYear()+1, 0, 1);
+          break;
+        default:
+          startDate = null;
+          endDate   = null;
+      }
+      if (startDate && endDate) {
+        applyRangeDates(startDate, endDate);
+      }
+    }
+    // Custom range
+    function applyRangeCustom(start, end) {
+      const s = new Date(start);
+      const e = new Date(end);
+      e.setDate(e.getDate() + 1);
+      applyRangeDates(s, e);
+    }
+    function applyRangeDates(s, e) {
+      const filtered = ALL_TRADES.filter(t => {
+        const d = parseDate(t.date);
+        return d && d >= s && d < e;
+      });
+      renderAll(filtered);
+    }
+    // Reapply current filters when new data loaded
+    function applyCurrentFilters() {
+      groupFilterActive = false;
+const resetBtn = $('resetGroupBtn');
+if (resetBtn) resetBtn.style.display = 'none';
+      // Ensure rangeButtons is initialised to avoid reference errors.
+      if (!Array.isArray(rangeButtons) || rangeButtons.length === 0) {
+        rangeButtons = ['todayBtn','weekBtn','monthBtn','ytdBtn','customBtn'];
+      }
+      // Determine which range button is currently active
+      const active = rangeButtons.find(id => $(id).classList.contains('active'));
+      if (active) {
+        if (active === 'customBtn') {
+          // If custom, apply current date values
+          const s = $('startDate').value;
+          const e = $('endDate').value;
+          if (s && e) {
+            applyRangeCustom(s, e);
+          } else {
+            renderAll(ALL_TRADES);
+          }
+        } else {
+          applyRangePreset(active);
+        }
+      } else {
+        renderAll(ALL_TRADES);
+      }
+    }
+
+    // Filter trades by group label from PnL chart click
+   function filterTradesByGroup(key) {
+  let startDate, endDate;
+
+  if (pnlRange === 'daily') {
+    startDate = new Date(key);
+    endDate = new Date(key);
+    endDate.setDate(endDate.getDate() + 1);
+  } else if (pnlRange === 'weekly') {
+    const parts = key.split('-W');
+    const year = parseInt(parts[0], 10);
+    const week = parseInt(parts[1], 10);
+    const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
+    const dow = simple.getUTCDay() || 7;
+    startDate = new Date(simple);
+    startDate.setUTCDate(simple.getUTCDate() - (dow - 1));
+    endDate = new Date(startDate);
+    endDate.setUTCDate(startDate.getUTCDate() + 7);
+  } else {
+    const parts = key.split('-');
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    startDate = new Date(year, month, 1);
+    endDate = new Date(year, month + 1, 1);
+  }
+
+  // ✅ marca ANTES de renderizar
+  groupFilterActive = true;
+
+  applyRangeDates(startDate, endDate);
+
+  const resetBtn = $('resetGroupBtn');
+  if (resetBtn) resetBtn.style.display = 'inline-block';
+}
+    // Initial demo load for quick preview
+    // Uncomment to load demo automatically
+    // $('demoBtn').click();
+
+    // ==== Google Sheet auto‑loading functions ====
+    // These helpers allow the journal to sync with a public Google Sheet
+    // published as CSV.  Set SHEET_CSV_URL to your sheet's CSV link and
+    // call startAutoRefresh() to begin polling.
+    let SHEET_CSV_URL = '';
+    let SHEET_TIMER   = null;
+
+    async function loadFromGoogleSheet(url) {
+      if (!url) return;
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) {
+          console.error('No se pudo leer el CSV del Sheet');
+          return;
+        }
+        const csv = await res.text();
+        const parsed = Papa.parse(csv, { header: true, skipEmptyLines: true });
+        // Clean rows: remove accidental header row if the sheet contains a blank first line
+        const rawRows = (parsed.data || []);
+        const cleaned = rawRows.filter(row => {
+          // Skip if the date field literally equals 'Date' (indicating header)
+          if (row.date === 'Date' || row.Date === 'Date') return false;
+          // Skip completely empty rows
+          const keys = Object.keys(row);
+          const allEmpty = keys.length === 0 || keys.every(k => String(row[k] ?? '').trim() === '');
+          return !allEmpty;
+        });
+        const trades = cleaned
+          .map(normalize)
+          .filter(t => t.date && !isNaN(parseDate(t.date)) && Number.isFinite(t.pnl));
+        // Replace global trades and update UI
+        ALL_TRADES = trades;
+        populatePairFilter(ALL_TRADES);
+        applyCurrentFilters();
+        // Update last update time
+        const now = new Date();
+        const elem = document.getElementById('lastUpdated');
+        if (elem) {
+          const time = now.toLocaleString('es-MX', { hour12: false });
+          elem.textContent = 'Última actualización: ' + time;
+        }
+      } catch(err) {
+        console.error(err);
+      }
+    }
+
+    function startAutoRefresh(url, seconds = 60) {
+      SHEET_CSV_URL = url;
+      // Clear existing interval if present
+      if (SHEET_TIMER) clearInterval(SHEET_TIMER);
+      // Perform initial load
+      loadFromGoogleSheet(url);
+      // Set up periodic refresh
+      SHEET_TIMER = setInterval(() => {
+        loadFromGoogleSheet(SHEET_CSV_URL);
+      }, seconds * 1000);
+    }
+
+    // Start syncing with the user's provided Sheet.
+    startAutoRefresh('https://docs.google.com/spreadsheets/d/e/2PACX-1vQCpyYDfCdQ7uwupJfK7VKqZU2tiruPfGC0o1yL3o-BzI1GEfJs2ZJ-4dQiIWe67Xy3vjrzPfRO9pFz/pub?gid=0&single=true&output=csv', 60);
+  
+  </script>
+</body>
+</html>
