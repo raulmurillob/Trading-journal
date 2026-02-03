@@ -482,6 +482,32 @@
       </div>
     </div>
   </div>
+   <!-- Lightbox para ampliar capturas -->
+<div id="imgLightbox" style="
+  position:fixed; inset:0; z-index:9999;
+  background:rgba(0,0,0,0.85);
+  display:none; align-items:center; justify-content:center;
+  padding:24px;
+">
+  <img id="imgLightboxImg" src="" alt="captura ampliada" style="
+    max-width:95vw; max-height:90vh;
+    border-radius:12px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.5);
+    border:1px solid rgba(255,255,255,0.12);
+    background:rgba(255,255,255,0.02);
+  ">
+<button type="button" id="imgLightboxClose" style="
+position:absolute; top:16px; right:16px;
+z-index:10000;
+    padding:10px 12px;
+    border-radius:10px;
+    border:1px solid rgba(255,255,255,0.15);
+    background:rgba(255,255,255,0.06);
+    color:#fff;
+    cursor:pointer;
+    font-weight:700;
+  ">✕</button>
+</div>
   <!-- Modal for trade details -->
   <div class="modal" id="detailModal">
     <div class="modal-content">
@@ -2152,31 +2178,5 @@ if (resetBtn) resetBtn.style.display = 'none';
     startAutoRefresh('https://docs.google.com/spreadsheets/d/e/2PACX-1vQCpyYDfCdQ7uwupJfK7VKqZU2tiruPfGC0o1yL3o-BzI1GEfJs2ZJ-4dQiIWe67Xy3vjrzPfRO9pFz/pub?gid=0&single=true&output=csv', 60);
   
   </script>
-  <!-- Lightbox para ampliar capturas -->
-<div id="imgLightbox" style="
-  position:fixed; inset:0; z-index:9999;
-  background:rgba(0,0,0,0.85);
-  display:none; align-items:center; justify-content:center;
-  padding:24px;
-">
-  <img id="imgLightboxImg" src="" alt="captura ampliada" style="
-    max-width:95vw; max-height:90vh;
-    border-radius:12px;
-    box-shadow:0 20px 60px rgba(0,0,0,0.5);
-    border:1px solid rgba(255,255,255,0.12);
-    background:rgba(255,255,255,0.02);
-  ">
-<button type="button" id="imgLightboxClose" style="
-position:absolute; top:16px; right:16px;
-z-index:10000;
-    padding:10px 12px;
-    border-radius:10px;
-    border:1px solid rgba(255,255,255,0.15);
-    background:rgba(255,255,255,0.06);
-    color:#fff;
-    cursor:pointer;
-    font-weight:700;
-  ">✕</button>
-</div>
 </body>
 </html>
