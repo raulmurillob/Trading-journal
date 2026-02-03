@@ -682,12 +682,29 @@ const outcome = String(outcomeRaw).trim().toUpperCase();
       let tf = raw['multi-s'] ?? raw['Multi-s'] ?? raw['Multi-s …'] ?? '';
       // Support timeframe column 'TF' or lowercase 'tf'
       if (!tf) tf = raw.TF ?? raw.tf ?? '';
-      const entry = raw.entry ?? raw.Entry ?? raw.entrada ?? raw.ENTRADA ?? raw['ENTRADA…'] ?? '';
-      const sl = raw.sl ?? raw.SL ?? '';
-      const target = raw.target ?? raw.Target ?? '';
-      let setup = raw.setup ?? raw['SET UP'] ?? '';
-      if (!setup) setup = raw.Setup ?? '';
-      const img = raw.image ?? raw.img ?? raw.screenshot ?? raw['captura'] ?? '';
+      // Entrada (en tu Sheet viene como "Entrada")
+const entry =
+  raw.entry ?? raw.Entry ??
+  raw.entrada ?? raw.Entrada ?? raw.ENTRADA ?? raw['ENTRADA…'] ?? '';
+
+// SL (en tu Sheet viene como "SL")
+const sl =
+  raw.sl ?? raw.SL ?? raw.Sl ?? '';
+
+// Objetivo / TP (en tu Sheet viene como "TP")
+const target =
+  raw.target ?? raw.Target ??
+  raw.tp ?? raw.TP ?? raw.Tp ?? '';
+
+// Setup
+let setup = raw.setup ?? raw.Setup ?? raw['SET UP'] ?? '';
+if (!setup) setup = raw['Set up'] ?? raw['SET UP'] ?? '';
+
+// Imagen (en tu Sheet viene como "CAPTURA"; también soporta "captura" o "image")
+const img =
+  raw.image ?? raw.img ?? raw.screenshot ??
+  raw.captura ?? raw.Captura ?? raw.CAPTURA ??
+  raw['captura'] ?? raw['CAPTURA'] ?? '';
       // Extract stop loss, take profit, and max favorable excursion in pips
       const slVal = raw.SL ?? raw.sl ?? raw['Sl'] ?? raw['sl'] ?? null;
       const tpVal = raw.TP ?? raw.tp ?? raw['Tp'] ?? raw['tp'] ?? null;
@@ -1747,7 +1764,7 @@ function updateEquityChart(metricsOrEqSeries) {
       // Format numeric values to two decimals where possible
       { label: 'Entrada', value: isNaN(Number(trade.entry)) ? trade.entry : fmt2(Number(trade.entry)) },
       { label: 'Stop', value: isNaN(Number(trade.sl)) ? trade.sl : fmt2(Number(trade.sl)) },
-      { label: 'Objetivo', value: isNaN(Number(trade.target)) ? trade.target : fmt2(Number(trade.target)) },
+{ label: 'TP', value: isNaN(Number(trade.target)) ? trade.target : fmt2(Number(trade.target)) },
         { label: 'PnL', value: fmt2(trade.pnl) },
         { label: 'Setup', value: trade.setup },
         { label: 'Comentario', value: trade.comment }
@@ -1758,15 +1775,23 @@ function updateEquityChart(metricsOrEqSeries) {
         grid.appendChild(div);
       });
       // If image field has multiple URLs separated by comma or semicolon, split them
-      if (trade.image) {
-        const urls = trade.image.split(/[,;]/).map(u => u.trim()).filter(u => u);
-        urls.forEach(u => {
-          const img = document.createElement('img');
-          img.src = u;
-          img.alt = 'captura de trade';
-          images.appendChild(img);
-        });
-      }
+const imgField = (trade.image || trade.captura || '').toString().trim();
+
+if (imgField) {
+  const urls = imgField
+    .split(/[,;]/)
+    .map(u => u.trim())
+    .filter(u => u);
+
+  urls.forEach(u => {
+    const img = document.createElement('img');
+    img.src = u;
+    img.alt = 'captura de trade';
+    img.loading = 'lazy';
+    img.referrerPolicy = 'no-referrer'; // ayuda con algunos hosts
+    images.appendChild(img);
+  });
+}
       modal.style.display = 'flex';
     }
     $('closeModalBtn').addEventListener('click', () => {
