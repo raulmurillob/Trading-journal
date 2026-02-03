@@ -1781,14 +1781,55 @@ if (imgField) {
   const urls = imgField
     .split(/[,;]/)
     .map(u => u.trim())
-    .filter(u => u);
+    .filter(Boolean);
 
   urls.forEach(u => {
+    // Si es TradingView snapshot link, lo mostramos como link (no como <img>)
+    const isTV = /tradingview\.com\/x\//i.test(u);
+
+    if (isTV) {
+      const wrap = document.createElement('div');
+      wrap.style.width = '100%';
+
+      const a = document.createElement('a');
+      a.href = u;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.textContent = 'Abrir captura en TradingView';
+      a.style.display = 'inline-block';
+      a.style.padding = '10px 12px';
+      a.style.border = '1px solid rgba(255,255,255,0.12)';
+      a.style.borderRadius = '8px';
+      a.style.background = 'rgba(255,255,255,0.04)';
+      a.style.color = '#f8fafc';
+      a.style.textDecoration = 'none';
+
+      wrap.appendChild(a);
+      images.appendChild(wrap);
+      return;
+    }
+
+    // Si NO es TradingView, intentamos render como imagen normal
     const img = document.createElement('img');
     img.src = u;
     img.alt = 'captura de trade';
     img.loading = 'lazy';
-    img.referrerPolicy = 'no-referrer'; // ayuda con algunos hosts
+    img.referrerPolicy = 'no-referrer';
+
+    // Si falla (host bloquea), mostramos link
+    img.onerror = () => {
+      const a = document.createElement('a');
+      a.href = u;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.textContent = 'Abrir captura';
+      a.style.display = 'inline-block';
+      a.style.marginTop = '6px';
+      a.style.color = '#60a5fa';
+      images.appendChild(a);
+      img.remove();
+    };
+
     images.appendChild(img);
   });
 }
