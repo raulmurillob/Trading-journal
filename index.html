@@ -318,10 +318,9 @@
       gap: 0.6rem;
     }
     .modal-content .images img {
-      max-width: calc(50% - 0.6rem);
-      border-radius: 0.4rem;
-      border: 1px solid var(--border);
-    }
+  max-width: 100%;
+  width: 100%;
+}
     .modal-close {
       margin-top: 1rem;
       text-align: right;
@@ -1814,80 +1813,31 @@ function closeLightbox() {
         div.innerHTML = `<span>${item.label}</span><strong>${item.value || '-'}</strong>`;
         grid.appendChild(div);
       });
-      // If image field has multiple URLs separated by comma or semicolon, split them
-const imgField = (trade.image || trade.captura || '').toString().trim();
-
-if (imgField) {
-  const urls = imgField
+// ===== Mostrar captura(s) y permitir zoom en la misma página =====
+if (trade.image) {
+  const urls = trade.image
     .split(/[,;]/)
     .map(u => u.trim())
     .filter(Boolean);
 
   urls.forEach(u => {
-    // Si es TradingView snapshot link, lo mostramos como link (no como <img>)
-    const isTV = /tradingview\.com\/x\//i.test(u);
+    const img = document.createElement('img');
+    img.src = u;
+    img.alt = 'captura de trade';
+    img.loading = 'lazy';
 
-    if (isTV) {
-      const wrap = document.createElement('div');
-      wrap.style.width = '100%';
+    // estilo pro dentro del modal
+    img.style.maxWidth = '100%';
+    img.style.borderRadius = '0.4rem';
+    img.style.border = '1px solid var(--border)';
+    img.style.cursor = 'zoom-in';
 
-      const a = document.createElement('a');
-      a.href = u;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      a.textContent = 'Abrir captura en TradingView';
-      a.style.display = 'inline-block';
-      a.style.padding = '10px 12px';
-      a.style.border = '1px solid rgba(255,255,255,0.12)';
-      a.style.borderRadius = '8px';
-      a.style.background = 'rgba(255,255,255,0.04)';
-      a.style.color = '#f8fafc';
-      a.style.textDecoration = 'none';
-
-      wrap.appendChild(a);
-      images.appendChild(wrap);
-      return;
-    }
-
-const img = document.createElement('img');
-img.src = u;
-img.alt = 'captura de trade';
-img.loading = 'lazy';
-img.referrerPolicy = 'no-referrer';
-img.style.cursor = 'zoom-in';
-
-img.addEventListener('click', () => {
-  openLightbox(u);
-});
-
-img.onerror = () => {
-  const a = document.createElement('a');
-  a.href = u;
-  a.target = '_blank';
-  a.rel = 'noopener noreferrer';
-  a.textContent = 'Abrir captura';
-  a.style.display = 'inline-block';
-  a.style.marginTop = '6px';
-  a.style.color = '#60a5fa';
-  images.appendChild(a);
-  img.remove();
-};
-
-images.appendChild(img);
-
-    // Si falla (host bloquea), mostramos link
-    img.onerror = () => {
-      const a = document.createElement('a');
-      a.href = u;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      a.textContent = 'Abrir captura';
-      a.style.display = 'inline-block';
-      a.style.marginTop = '6px';
-      a.style.color = '#60a5fa';
-      images.appendChild(a);
-      img.remove();
-    };
+    // click => abrir lightbox (misma página)
+    img.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openLightbox(u);
+    });
 
     images.appendChild(img);
   });
