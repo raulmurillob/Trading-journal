@@ -1444,29 +1444,62 @@ function updateEquityChart(metricsOrEqSeries) {
   let labels = [];
   let data = [];
 
-  if (hasTWR) {
-    const periodMap = new Map();
+if (hasTWR) {
+  // Retorno por periodo usando FIN del periodo anterior -> FIN del periodo actual
+  const series = (m.twrSeries || [])
+    .slice()
+    .sort((a, b) => (parseDate(a.date) ?? 0) - (parseDate(b.date) ?? 0));
 
-    for (const p of m.twrSeries) {
-      const d = parseDate(p.date);
-      if (!d) continue;
+  const keyFn =
+    (pnlRange === 'daily')  ? (d => dayKey(d)) :
+    (pnlRange === 'weekly') ? (d => weekKey(d)) :
+                              (d => monthKey(d));
 
-      const key =
-        (pnlRange === 'daily')  ? dayKey(d)  :
-        (pnlRange === 'weekly') ? weekKey(d) :
-                                 monthKey(d);
+  labels = [];
+  data = [];
 
-      if (!periodMap.has(key)) periodMap.set(key, { first: p.idx, last: p.idx });
-      else periodMap.get(key).last = p.idx;
+  // Índice base (cierre del periodo previo). Arranca con el primer punto disponible.
+  let prevEndIdx = series[0]?.idx ?? 1;
+
+  let curKey = null;
+  let curEndIdx = prevEndIdx;
+
+  for (let i = 0; i < series.length; i++) {
+    const p = series[i];
+    const d = parseDate(p.date);
+    if (!d) continue;
+
+    const k = keyFn(d);
+
+    if (curKey === null) {
+      curKey = k;
+      curEndIdx = p.idx;
+      continue;
     }
 
-    labels = Array.from(periodMap.keys());
-    data = labels.map(k => {
-      const v = periodMap.get(k);
-      if (!v || !v.first) return 0;
-      return ((v.last / v.first) - 1) * 100;
-    });
-  } else {
+    if (k === curKey) {
+      // seguimos en el mismo periodo: actualizamos el cierre
+      curEndIdx = p.idx;
+    } else {
+      // cerramos el periodo anterior
+      const r = prevEndIdx ? ((curEndIdx / prevEndIdx) - 1) * 100 : 0;
+      labels.push(curKey);
+      data.push(r);
+
+      // arrancamos nuevo periodo
+      prevEndIdx = curEndIdx;
+      curKey = k;
+      curEndIdx = p.idx;
+    }
+  }
+
+  // cerrar último periodo
+  if (curKey !== null) {
+    const r = prevEndIdx ? ((curEndIdx / prevEndIdx) - 1) * 100 : 0;
+    labels.push(curKey);
+    data.push(r);
+  }
+} else {
     // fallback anterior si no hay balance: PnL / accountSize (no compuesto)
     let groups;
     if (pnlRange === 'daily') groups = groupBy(trades, dayKey);
