@@ -1444,10 +1444,12 @@ function updateEquityChart(metricsOrEqSeries) {
   let labels = [];
   let data = [];
 
-if (hasTWR) {
-  // Retorno por periodo usando FIN del periodo anterior -> FIN del periodo actual
-  const series = (m.twrSeries || [])
+// Retorno por periodo usando la MISMA lógica del KPI:
+// retorno compuesto por trade = pnl / balance_antes_del_trade
+{
+  const sorted = (trades || [])
     .slice()
+    .filter(t => t.balance !== null && t.balance !== undefined && isFinite(Number(t.balance)))
     .sort((a, b) => (parseDate(a.date) ?? 0) - (parseDate(b.date) ?? 0));
 
   const keyFn =
@@ -1458,49 +1460,59 @@ if (hasTWR) {
   labels = [];
   data = [];
 
-  // Índice base (cierre del periodo previo). Arranca con el primer punto disponible.
-  let prevEndIdx = series[0]?.idx ?? 1;
-
+  let prevBalance = null;   // balance DESPUÉS del evento anterior
   let curKey = null;
-  let curEndIdx = prevEndIdx;
+  let compounded = 1;
 
-  for (let i = 0; i < series.length; i++) {
-    const p = series[i];
-    const d = parseDate(p.date);
+  function closePeriod(k, comp) {
+    labels.push(k);
+    data.push((comp - 1) * 100);
+  }
+
+  for (let i = 0; i < sorted.length; i++) {
+    const t = sorted[i];
+    const d = parseDate(t.date);
     if (!d) continue;
 
     const k = keyFn(d);
 
+    const balAfter = Number(t.balance);
+    const pnl = Number(t.pnl) || 0;
+    const cf  = Number(t.cashflow) || 0;
+
+    // Si cambia de periodo, cerramos el anterior
     if (curKey === null) {
       curKey = k;
-      curEndIdx = p.idx;
-      continue;
-    }
-
-    if (k === curKey) {
-      // seguimos en el mismo periodo: actualizamos el cierre
-      curEndIdx = p.idx;
-    } else {
-      // cerramos el periodo anterior
-      const r = prevEndIdx ? ((curEndIdx / prevEndIdx) - 1) * 100 : 0;
-      labels.push(curKey);
-      data.push(r);
-
-      // arrancamos nuevo periodo
-      prevEndIdx = curEndIdx;
+      compounded = 1;
+    } else if (k !== curKey) {
+      closePeriod(curKey, compounded);
       curKey = k;
-      curEndIdx = p.idx;
+      compounded = 1;
     }
+
+    // Balance ANTES del evento
+    const balBefore =
+      (prevBalance !== null && isFinite(prevBalance))
+        ? prevBalance
+        : (balAfter - pnl - cf);
+
+    // Solo compone cuando es TRADE (pnl != 0)
+    if (pnl !== 0 && balBefore > 0) {
+      const r = pnl / balBefore;
+      compounded *= (1 + r);
+    }
+
+    // Actualiza prevBalance
+    prevBalance = balAfter;
   }
 
-  // cerrar último periodo
+  // Cerrar último periodo
   if (curKey !== null) {
-    const r = prevEndIdx ? ((curEndIdx / prevEndIdx) - 1) * 100 : 0;
-    labels.push(curKey);
-    data.push(r);
+    closePeriod(curKey, compounded);
   }
-} else {
-    // fallback anterior si no hay balance: PnL / accountSize (no compuesto)
+
+  // Si no hubo datos, fallback simple
+  if (!labels.length) {
     let groups;
     if (pnlRange === 'daily') groups = groupBy(trades, dayKey);
     else if (pnlRange === 'weekly') groups = groupBy(trades, weekKey);
@@ -1508,8 +1520,11 @@ if (hasTWR) {
 
     labels = groups.map(([k]) => k);
     const startCapital = accountSize || 1;
-    data = groups.map(([k, sumPnL]) => (startCapital !== 0 ? (sumPnL / startCapital) * 100 : 0));
+    data = groups.map(([k, sumPnL]) =>
+      startCapital !== 0 ? (sumPnL / startCapital) * 100 : 0
+    );
   }
+}
 
   if (pnlChart) pnlChart.destroy();
   pnlChart = new Chart($("pnlChart"), {
