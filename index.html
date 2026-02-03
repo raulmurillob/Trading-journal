@@ -1774,8 +1774,13 @@ function closeLightbox() {
   const closeBtn = document.getElementById('imgLightboxClose');
   const img = document.getElementById('imgLightboxImg');
 
-  if (closeBtn) closeBtn.addEventListener('click', closeLightbox);
-
+if (closeBtn) {
+  closeBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeLightbox();
+  });
+}
   if (lb) {
     lb.addEventListener('click', (e) => {
       if (e.target === lb) closeLightbox();
@@ -2161,8 +2166,9 @@ if (resetBtn) resetBtn.style.display = 'none';
     border:1px solid rgba(255,255,255,0.12);
     background:rgba(255,255,255,0.02);
   ">
-  <button id="imgLightboxClose" style="
-    position:absolute; top:16px; right:16px;
+<button type="button" id="imgLightboxClose" style="
+position:absolute; top:16px; right:16px;
+z-index:10000;
     padding:10px 12px;
     border-radius:10px;
     border:1px solid rgba(255,255,255,0.15);
