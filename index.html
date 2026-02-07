@@ -357,6 +357,20 @@
   <button id="applyFiltersBtn" class="btn">Aplicar filtros</button>
   <button id="resetFiltersBtn" class="btn">Limpiar filtros</button>
 </div>
+<!-- Day of week filter -->
+<div style="display:flex; justify-content:center; align-items:center; gap:0.5rem; margin-bottom:1rem; flex-wrap:wrap;">
+  <label style="color:var(--muted); font-size:0.85rem;">Día:</label>
+
+  <select id="dayFilter"
+    style="padding:0.45rem 0.6rem; border:1px solid var(--border); border-radius:0.5rem; background:var(--surface); color:var(--text); min-width:140px;">
+    <option value="ALL">Todos</option>
+    <option value="1">Lunes</option>
+    <option value="2">Martes</option>
+    <option value="3">Miércoles</option>
+    <option value="4">Jueves</option>
+    <option value="5">Viernes</option>
+  </select>
+</div>
     <!-- Range filter buttons -->
     <div class="range-filter">
       <button id="todayBtn">Hoy</button>
@@ -1275,6 +1289,19 @@ filteredTrades = filteredTrades.filter(t => {
   return m >= fromMin && m <= toMin;
 });
 FILTERED_TRADES = filteredTrades;
+// 1C) Filtro por DÍA DE LA SEMANA (Lunes–Viernes)
+const dayEl = document.getElementById('dayFilter');
+if (dayEl && dayEl.value !== 'ALL') {
+  const targetDay = Number(dayEl.value); // 1 = Lunes ... 5 = Viernes
+
+  filteredTrades = filteredTrades.filter(t => {
+    const d = parseDate(t.date);
+    if (!d) return false;
+
+    const jsDay = d.getDay(); // 0 = Domingo, 1 = Lunes ... 6 = Sábado
+    return jsDay === targetDay;
+  });
+}
  // KPI: TP Óptimo (máx. expectancia) en pips
 try {
 const res = computeTPOptimoMaxExpectancia(filteredTrades);
@@ -1985,6 +2012,10 @@ if (resetFiltersBtn) {
     const e = document.getElementById('endDate');
     if (s) s.value = '';
     if (e) e.value = '';
+    
+    // Día
+const df = document.getElementById('dayFilter');
+if (df) df.value = 'ALL';
 
     // Quitar rango activo (histórico completo)
     setActiveRangeButton(null);
