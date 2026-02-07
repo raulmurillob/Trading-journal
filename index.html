@@ -385,7 +385,7 @@
         <!-- Return percentage for the selected period inserted before the PnL card -->
         <div class="kpi-card"><h3>Retorno (%)</h3><div class="value" id="kpiReturn">0.00%</div></div>
         <div class="kpi-card"><h3>PnL total</h3><div class="value" id="kpiTotal">0.00</div></div>
-      <div class="kpi-card"><h3>PnL promedio</h3><div class="value" id="kpiAvg">0.00</div></div>
+        <div class="kpi-card"><h3>Trades</h3><div class="value" id="kpiTrades">0</div></div>
       <div class="kpi-card"><h3>Win rate</h3><div class="value" id="kpiWin">0%</div></div>
       <div class="kpi-card"><h3>Max drawdown</h3><div class="value" id="kpiDD">0%</div></div>
       <div class="kpi-card"><h3>Sharpe</h3><div class="value" id="kpiSharpe">0.00</div></div>
@@ -853,7 +853,6 @@ function computeTWRIndexSeries(trades) {
 function computeMetrics(trades) {
   const n = trades.length;
   const total = trades.reduce((acc, t) => acc + (Number(t.pnl) || 0), 0);
-  const avg = n ? total / n : 0;
 
   // ===== Win rate basado en OUTCOME =====
   const wins = trades.filter(t => String(t.outcome || '').toUpperCase() === 'WIN').length;
@@ -956,7 +955,6 @@ const winRate = (wins + losses) > 0 ? wins / (wins + losses) : 0;
 
   return {
     total,
-    avg,
     winRate,
     maxDD,
     sharpe,
@@ -1253,7 +1251,11 @@ function timeToMinutes(hhmm) {
 
 // ===== 1) Aplicar filtros combinables (Hora + Par) =====
 let filteredTrades = Array.isArray(trades) ? trades.slice() : [];
-
+// KPI: número de trades según filtros activos
+const kpiTrades = document.getElementById('kpiTrades');
+if (kpiTrades) {
+  kpiTrades.textContent = String(filteredTrades.length);
+}
 // 1A) Filtro por PAR
 const pairEl = document.getElementById('pairFilter');
 if (pairEl && pairEl.value && pairEl.value !== 'ALL') {
@@ -1344,7 +1346,6 @@ const sorted = filteredTrades
   $('kpiReturn').textContent = pct(returnFraction);
 }
       $('kpiTotal').textContent = fmt2(metrics.total);
-      $('kpiAvg').textContent = fmt2(metrics.avg);
       $('kpiWin').textContent = pct(metrics.winRate);
       $('kpiDD').textContent = pct(metrics.maxDD);
       $('kpiSharpe').textContent = fmt2(metrics.sharpe);
