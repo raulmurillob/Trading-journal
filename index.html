@@ -333,7 +333,40 @@
       border-radius: 0.4rem;
       cursor: pointer;
     }
-    #applyRangeBtn { display: none !important; }
+#applyRangeBtn { display: none !important; }
+
+/* ===== Trades table: no partir Fecha/Hora ===== */
+td.col-date, th.col-date, .mono {
+  white-space: nowrap;
+}
+
+td.col-date, th.col-date {
+  min-width: 120px;
+}
+
+td, th { padding: 0.55rem 0.5rem; }
+
+/* ===== Outcome colors ===== */
+.outcome-win {
+  color: #16a34a;
+  font-weight: 700;
+}
+
+.outcome-loss {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.outcome-be {
+  color: #facc15;
+  font-weight: 700;
+}
+/* ===== Monospace para fechas, números y precios ===== */
+.mono{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+               "Liberation Mono", "Courier New", monospace;
+  white-space: nowrap;
+}
   </style>
 </head>
 <body>
@@ -462,15 +495,17 @@
     <!-- Trades table -->
     <div style="overflow-x:auto;">
       <table>
-        <thead>
-          <tr>
-            <th>Fecha</th>
-            <th>Símbolo</th>
-            <th>Tipo</th>
-            <th>PnL</th>
-            <th>Comentario</th>
-          </tr>
-        </thead>
+       <thead>
+  <tr>
+    <th class="col-date">Fecha</th>
+    <th>Símbolo</th>
+    <th>Tipo</th>
+    <th>Entrada</th>
+    <th>Outcome</th>
+    <th>PnL</th>
+    <th>Comentario</th>
+  </tr>
+</thead>
         <tbody id="tradesBody"></tbody>
       </table>
     </div>
@@ -1796,8 +1831,21 @@ function updateEquityChart(metricsOrEqSeries) {
       filtered.sort((a,b) => (parseDate(a.date) ?? 0) - (parseDate(b.date) ?? 0)).forEach(t => {
         const tr = document.createElement('tr');
         const cls = t.pnl >= 0 ? 'pos' : 'neg';
-        tr.innerHTML = `<td class="mono">${formatPrettyDate(t.date, true)}</td><td>${t.symbol || '-'}</td><td>${t.type || '-'}</td><td class="mono ${cls}">${fmt2(t.pnl)}</td><td>${t.comment || ''}</td>`;
-        tr.addEventListener('click', () => showTradeDetails(t));
+const outcome = (t.outcome || '').toUpperCase();
+const outcomeClass =
+  outcome === 'WIN'  ? 'outcome-win'  :
+  outcome === 'LOSS' ? 'outcome-loss' :
+  outcome === 'BE'   ? 'outcome-be'   : '';
+
+tr.innerHTML = `
+  <td class="mono col-date">${formatPrettyDate(t.date, true)}</td>
+  <td>${t.symbol || '-'}</td>
+  <td>${t.type || '-'}</td>
+  <td class="mono">${(t.entry !== undefined && t.entry !== null && String(t.entry).trim() !== '') ? t.entry : '-'}</td>
+  <td class="${outcomeClass}">${outcome || '-'}</td>
+  <td class="mono ${cls}">${fmt2(t.pnl)}</td>
+  <td>${t.comment || ''}</td>
+`;        tr.addEventListener('click', () => showTradeDetails(t));
         tbody.appendChild(tr);
       });
     }
