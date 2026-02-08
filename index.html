@@ -333,12 +333,12 @@
       border-radius: 0.4rem;
       cursor: pointer;
     }
+    #applyRangeBtn { display: none !important; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Mi Track Record Pro</h1>
-    <p class="tagline">Explora tus trades por día, semana o mes. Filtra rangos personalizados, compara con benchmarks y revisa cada operación con un clic.</p>
+    <h1>Trading Journal</h1>
 
     <!-- Display last update time for Google Sheet auto‑sync -->
     <div id="lastUpdated" style="color:var(--muted); font-size:0.8rem; text-align:center; margin-top:0.5rem;"></div>
@@ -354,8 +354,7 @@
   <input id="timeTo" type="time" value="23:59"
     style="padding:0.4rem 0.6rem; border:1px solid var(--border); border-radius:0.4rem; background:var(--surface); color:var(--text); width:110px;">
 
-  <button id="applyFiltersBtn" class="btn">Aplicar filtros</button>
-  <button id="resetFiltersBtn" class="btn">Limpiar filtros</button>
+<button id="resetFiltersBtn" class="btn">Limpiar filtros</button>
 </div>
 <!-- Day of week filter -->
 <div style="display:flex; justify-content:center; align-items:center; gap:0.5rem; margin-bottom:1rem; flex-wrap:wrap;">
@@ -1265,11 +1264,6 @@ function timeToMinutes(hhmm) {
 
 // ===== 1) Aplicar filtros combinables (Hora + Par) =====
 let filteredTrades = Array.isArray(trades) ? trades.slice() : [];
-// KPI: número de trades según filtros activos
-const kpiTrades = document.getElementById('kpiTrades');
-if (kpiTrades) {
-  kpiTrades.textContent = String(filteredTrades.length);
-}
 // 1A) Filtro por PAR
 const pairEl = document.getElementById('pairFilter');
 if (pairEl && pairEl.value && pairEl.value !== 'ALL') {
@@ -1288,7 +1282,6 @@ filteredTrades = filteredTrades.filter(t => {
   if (m === null) return false;
   return m >= fromMin && m <= toMin;
 });
-FILTERED_TRADES = filteredTrades;
 // 1C) Filtro por DÍA DE LA SEMANA (Lunes–Viernes)
 const dayEl = document.getElementById('dayFilter');
 if (dayEl && dayEl.value !== 'ALL') {
@@ -1302,6 +1295,12 @@ if (dayEl && dayEl.value !== 'ALL') {
     return jsDay === targetDay;
   });
 }
+
+// ✅ AHORA SÍ: guardar y mostrar lo que quedó tras TODOS los filtros
+FILTERED_TRADES = filteredTrades;
+
+const kpiTrades = document.getElementById('kpiTrades');
+if (kpiTrades) kpiTrades.textContent = String(filteredTrades.length);
  // KPI: TP Óptimo (máx. expectancia) en pips
 try {
 const res = computeTPOptimoMaxExpectancia(filteredTrades);
@@ -1936,23 +1935,16 @@ if (trade.image) {
         rangeButtons.forEach(btnId => $(btnId).classList.remove('active'));
         $(id).classList.add('active');
         if (id === 'customBtn') {
-          $('customRange').style.display = 'flex';
-        } else {
-          $('customRange').style.display = 'none';
-          applyRangePreset(id);
-        }
+  $('customRange').style.display = 'flex';
+  // ✅ si ya hay fechas elegidas, aplica en caliente
+  const s = $('startDate').value;
+  const e = $('endDate').value;
+  if (s && e) applyCurrentFilters();
+} else {
+  $('customRange').style.display = 'none';
+  applyRangePreset(id);
+}
       });
-    });
-    $('applyRangeBtn').addEventListener('click', () => {
-      const start = $('startDate').value;
-      const end   = $('endDate').value;
-      if (!start || !end) {
-        alert('Selecciona ambas fechas para el rango.');
-        return;
-      }
-      $('customBtn').classList.add('active');
-      rangeButtons.filter(id => id !== 'customBtn').forEach(id => $(id).classList.remove('active'));
-      applyRangeCustom(start, end);
     });
     // Toggle equity chart
     Array.from($('equityToggle').children).forEach(btn => {
@@ -1985,13 +1977,6 @@ function setActiveRangeButton(idOrNull) {
   });
 }
 
-const applyFiltersBtn = document.getElementById('applyFiltersBtn');
-if (applyFiltersBtn) {
-  applyFiltersBtn.addEventListener('click', () => {
-    applyCurrentFilters();
-  });
-}
-
 const resetFiltersBtn = document.getElementById('resetFiltersBtn');
 if (resetFiltersBtn) {
   resetFiltersBtn.addEventListener('click', () => {
@@ -2012,7 +1997,7 @@ if (resetFiltersBtn) {
     const e = document.getElementById('endDate');
     if (s) s.value = '';
     if (e) e.value = '';
-    
+
     // Día
 const df = document.getElementById('dayFilter');
 if (df) df.value = 'ALL';
@@ -2083,32 +2068,74 @@ if (resetGroupBtn) {
     }
     // Reapply current filters when new data loaded
     function applyCurrentFilters() {
-      groupFilterActive = false;
-const resetBtn = $('resetGroupBtn');
-if (resetBtn) resetBtn.style.display = 'none';
-      // Ensure rangeButtons is initialised to avoid reference errors.
-      if (!Array.isArray(rangeButtons) || rangeButtons.length === 0) {
-        rangeButtons = ['todayBtn','weekBtn','monthBtn','ytdBtn','customBtn'];
-      }
-      // Determine which range button is currently active
-      const active = rangeButtons.find(id => $(id).classList.contains('active'));
-      if (active) {
-        if (active === 'customBtn') {
-          // If custom, apply current date values
-          const s = $('startDate').value;
-          const e = $('endDate').value;
-          if (s && e) {
-            applyRangeCustom(s, e);
-          } else {
-            renderAll(ALL_TRADES);
-          }
-        } else {
-          applyRangePreset(active);
-        }
+  groupFilterActive = false;
+  const resetBtn = $('resetGroupBtn');
+  if (resetBtn) resetBtn.style.display = 'none';
+
+  if (!Array.isArray(rangeButtons) || rangeButtons.length === 0) {
+    rangeButtons = ['todayBtn','weekBtn','monthBtn','ytdBtn','customBtn'];
+  }
+
+  const active = rangeButtons.find(id => $(id).classList.contains('active'));
+  if (active) {
+    if (active === 'customBtn') {
+      const s = $('startDate').value;
+      const e = $('endDate').value;
+      if (s && e) {
+        applyRangeCustom(s, e);
       } else {
         renderAll(ALL_TRADES);
       }
+    } else {
+      applyRangePreset(active);
     }
+  } else {
+    renderAll(ALL_TRADES);
+  }
+}
+
+/* 👇👇👇 PEGA AQUÍ, JUSTO AQUÍ 👇👇👇 */
+
+// ===== Auto-aplicar filtros (sin botón) =====
+function wireAutoFilters() {
+  const pairEl = document.getElementById('pairFilter');
+  const dayEl  = document.getElementById('dayFilter');
+  const tFrom  = document.getElementById('timeFrom');
+  const tTo    = document.getElementById('timeTo');
+  const sDate  = document.getElementById('startDate');
+  const eDate  = document.getElementById('endDate');
+
+  if (pairEl) pairEl.addEventListener('change', applyCurrentFilters);
+  if (dayEl)  dayEl.addEventListener('change', applyCurrentFilters);
+
+  if (tFrom) {
+    tFrom.addEventListener('change', applyCurrentFilters);
+    tFrom.addEventListener('input', applyCurrentFilters);
+  }
+  if (tTo) {
+    tTo.addEventListener('change', applyCurrentFilters);
+    tTo.addEventListener('input', applyCurrentFilters);
+  }
+
+  function maybeApplyCustomRange() {
+    const customBtn = document.getElementById('customBtn');
+    if (customBtn && customBtn.classList.contains('active')) {
+      applyCurrentFilters();
+    }
+  }
+
+  if (sDate) {
+    sDate.addEventListener('change', maybeApplyCustomRange);
+    sDate.addEventListener('input', maybeApplyCustomRange);
+  }
+  if (eDate) {
+    eDate.addEventListener('change', maybeApplyCustomRange);
+    eDate.addEventListener('input', maybeApplyCustomRange);
+  }
+}
+
+// Ejecutar una sola vez
+wireAutoFilters();
 
     // Filter trades by group label from PnL chart click
    function filterTradesByGroup(key) {
