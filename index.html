@@ -367,6 +367,21 @@ td, th { padding: 0.55rem 0.5rem; }
                "Liberation Mono", "Courier New", monospace;
   white-space: nowrap;
 }
+/* ===== Forzar iconos de time/date en blanco ===== */
+
+/* Chrome / Edge / Safari */
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 1;
+  cursor: pointer;
+}
+
+/* Firefox (usa accent-color) */
+input[type="time"],
+input[type="date"] {
+  accent-color: #ffffff;
+}
   </style>
 </head>
 <body>
