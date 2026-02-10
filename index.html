@@ -477,10 +477,6 @@ input[type="date"] {
         <div class="chart-header">
           <h3>Curva de equity</h3>
           <div style="display:flex; gap:0.4rem; align-items:center;">
-            <div class="toggle-btns" id="equityToggle">
-              <button data-type="money" class="active">Dinero</button>
-              <button data-type="percentage">%</button>
-            </div>
           </div>
         </div>
         <canvas id="equityChart" height="200"></canvas>
@@ -711,7 +707,7 @@ function formatDateLabel(label) {
 
     // Flag to track whether a group-based filter is active (clicking PnL bar)
     let groupFilterActive = false;
-    let equityType = 'money';
+let equityType = 'percentage';
     let pnlRange = 'monthly';
   
 
@@ -2025,17 +2021,6 @@ if (trade.image) {
 }
       });
     });
-    // Toggle equity chart
-    Array.from($('equityToggle').children).forEach(btn => {
-  btn.addEventListener('click', () => {
-    Array.from($('equityToggle').children).forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    equityType = btn.getAttribute('data-type');
-
-    const metrics = computeMetrics(FILTERED_TRADES);
-    updateEquityChart(metrics);
-  });
-});
 
     // Toggle PnL chart range
     Array.from($('pnlToggle').children).forEach(btn => {
