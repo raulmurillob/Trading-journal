@@ -453,8 +453,6 @@ input[type="date"] {
       <div class="kpi-card"><h3>Calmar</h3><div class="value" id="kpiCalmar">0.00</div></div>
 
       <!-- Additional KPIs for more advanced metrics -->
-      <div class="kpi-card"><h3>Profit Factor</h3><div class="value" id="kpiProfitFactor">0.00</div></div>
-      <div class="kpi-card"><h3>Payoff Ratio</h3><div class="value" id="kpiPayoff">0.00</div></div>
       <div class="kpi-card"><h3>Expectancia</h3><div class="value" id="kpiExpectancy">0.00</div></div>
 
       <!-- KPI cards for Risk:Reward analysis -->
@@ -1438,8 +1436,6 @@ const sorted = filteredTrades
       $('kpiSharpe').textContent = fmt2(metrics.sharpe);
       $('kpiCalmar').textContent = fmt2(metrics.calmar);
       // Set additional KPIs
-      $('kpiProfitFactor').textContent = fmt2(metrics.profitFactor);
-      $('kpiPayoff').textContent = fmt2(metrics.payoffRatio);
       $('kpiExpectancy').textContent = fmt2(metrics.expectancy);
 
       // Compute Risk:Reward metrics and update KPI cards.  These metrics
