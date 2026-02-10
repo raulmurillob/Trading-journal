@@ -1294,6 +1294,20 @@ function timeToMinutes(hhmm) {
   const mm = parseInt(parts[1], 10) || 0;
   return hh * 60 + mm;
 }
+function isRealTradeRow(t) {
+  const pnl = Number(t?.pnl) || 0;
+  const cf  = Number(t?.cashflow) || 0;
+
+  // Si es un cashflow y no hay pnl, NO es trade
+  if (cf !== 0 && pnl === 0) return false;
+
+  // Opcional: si viene sin símbolo y sin tipo, tampoco lo consideres trade
+  const sym = String(t?.symbol || '').trim();
+  const type = String(t?.type || '').trim();
+  if (!sym && !type && pnl === 0) return false;
+
+  return true;
+}
     // Render metrics and charts
     function renderAll(trades) {
 
@@ -1334,8 +1348,9 @@ if (dayEl && dayEl.value !== 'ALL') {
 // ✅ AHORA SÍ: guardar y mostrar lo que quedó tras TODOS los filtros
 FILTERED_TRADES = filteredTrades;
 
+const TRADE_ROWS = filteredTrades.filter(isRealTradeRow);
 const kpiTrades = document.getElementById('kpiTrades');
-if (kpiTrades) kpiTrades.textContent = String(filteredTrades.length);
+if (kpiTrades) kpiTrades.textContent = String(TRADE_ROWS.length);
  // KPI: TP Óptimo (máx. expectancia) en pips
 try {
 const res = computeTPOptimoMaxExpectancia(filteredTrades);
@@ -1446,7 +1461,7 @@ const mfePipsStats  = computeMFEStats(filteredTrades, true);
       }
 updateEquityChart(metrics);
 updatePnlChart(filteredTrades);
-renderTable(filteredTrades);
+renderTable(TRADE_ROWS);
     }
 function updateEquityChart(metricsOrEqSeries) {
   const metrics = (metricsOrEqSeries && metricsOrEqSeries.eqSeries) ? metricsOrEqSeries : null;
@@ -1818,6 +1833,7 @@ function updateEquityChart(metricsOrEqSeries) {
     }
     // Render table rows
     function renderTable(trades) {
+        trades = (trades || []).filter(isRealTradeRow);
       const tbody = $('tradesBody');
       const search = $('searchInput').value.toLowerCase().trim();
       const filtered = !search ? trades : trades.filter(t => {
