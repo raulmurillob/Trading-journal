@@ -1955,9 +1955,10 @@ function tradingViewToImageUrl(u) {
 // ===== Mostrar captura(s) y permitir zoom en la misma página =====
 if (trade.image) {
   const urls = trade.image
-    .split(/[,;]/)
-    .map(u => u.trim())
-    .filter(Boolean);
+  // separa por " | " o ";" o saltos de línea
+  .split(/\s*\|\s*|;|\n+/)
+  .map(u => u.trim())
+  .filter(Boolean);
 
   urls.forEach(u => {
     const img = document.createElement('img');
