@@ -441,6 +441,14 @@ input[type="date"] {
   </select>
 
 </div>
+<div style="display:flex; justify-content:center; align-items:center; gap:0.5rem; margin-bottom:1rem; flex-wrap:wrap;">
+  <label style="color:var(--muted); font-size:0.85rem;">Confluencias:</label>
+
+  <select id="confluenceFilter" multiple
+    style="padding:0.45rem 0.6rem; border:1px solid var(--border); border-radius:0.5rem;
+           background:var(--surface); color:var(--text); min-width:260px; height:110px;">
+  </select>
+</div>
     <!-- KPI cards -->
     <div class="kpi-grid">
         <!-- Return percentage for the selected period inserted before the PnL card -->
@@ -596,6 +604,30 @@ z-index:10000;
   });
 
   sel.value = pairs.includes(current) ? current : 'ALL';
+}
+function populateConfluenceFilter(trades) {
+  const sel = document.getElementById('confluenceFilter');
+  if (!sel) return;
+
+  const set = new Set();
+
+  (trades || []).forEach(t => {
+    const raw = String(t.confluences || '').trim();
+    if (!raw) return;
+
+    raw.split(',').map(x => x.trim()).filter(Boolean).forEach(c => set.add(c));
+  });
+
+  const current = Array.from(sel.selectedOptions).map(o => o.value);
+
+  sel.innerHTML = '';
+  Array.from(set).sort().forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c;
+    opt.textContent = c;
+    if (current.includes(c)) opt.selected = true;
+    sel.appendChild(opt);
+  });
 }
     // Utility functions
     const $ = (id) => document.getElementById(id);
@@ -760,7 +792,7 @@ const outcome = String(outcomeRaw).trim().toUpperCase();
       let type = raw.side ?? raw.Side ?? raw['tipo'] ?? raw['TIPO D'] ?? '';
       // Support English column 'Type'
       if (!type) type = raw.Type ?? '';
-      const comment = raw.comment ?? raw.Comment ?? raw['confluencias'] ?? raw['CONFLUENCIAS'] ?? raw['set up'] ?? raw['SET UP'] ?? '';
+const comment = raw.comment ?? raw.Comment ?? raw.COMMENT ?? '';
       let tf = raw['multi-s'] ?? raw['Multi-s'] ?? raw['Multi-s …'] ?? '';
       // Support timeframe column 'TF' or lowercase 'tf'
       if (!tf) tf = raw.TF ?? raw.tf ?? '';
@@ -782,6 +814,8 @@ const target =
 let setup = raw.setup ?? raw.Setup ?? raw['SET UP'] ?? '';
 if (!setup) setup = raw['Set up'] ?? raw['SET UP'] ?? '';
 
+const confluences =
+  raw.confluences ?? raw.Confluences ?? raw.CONFLUENCES ?? '';
 // Imagen (en tu Sheet viene como "CAPTURA"; también soporta "captura" o "image")
 const img =
   raw.image ?? raw.img ?? raw.screenshot ??
@@ -798,6 +832,7 @@ const img =
         outcome: outcome,
         type: String(type).trim(),
         comment: String(comment).trim(),
+        confluences: String(confluences).trim(),
         tf: String(tf).trim(),
         entry: entry ? String(entry).trim() : '',
         sl: sl ? String(sl).trim() : '',
@@ -1353,7 +1388,21 @@ if (dayEl && dayEl.value !== 'ALL') {
     return jsDay === targetDay;
   });
 }
+// 1D) Filtro por CONFLUENCIAS (acumulativo)
+const confEl = document.getElementById('confluenceFilter');
+const selectedConfs = confEl
+  ? Array.from(confEl.selectedOptions).map(o => o.value)
+  : [];
 
+if (selectedConfs.length > 0) {
+  filteredTrades = filteredTrades.filter(t => {
+    const raw = String(t.confluences || '').trim();
+    if (!raw) return false;
+
+    const tradeConfs = raw.split(',').map(x => x.trim());
+    return selectedConfs.every(c => tradeConfs.includes(c));
+  });
+}
 // ✅ AHORA SÍ: guardar y mostrar lo que quedó tras TODOS los filtros
 FILTERED_TRADES = filteredTrades;
 
@@ -1935,6 +1984,7 @@ if (closeBtn) {
 { label: 'TP', value: isNaN(Number(trade.target)) ? trade.target : fmt2(Number(trade.target)) },
         { label: 'PnL', value: fmt2(trade.pnl) },
         { label: 'Setup', value: trade.setup },
+        { label: 'Confluencias', value: trade.confluences },
         { label: 'Comentario', value: trade.comment }
       ];
       detailPairs.forEach(item => {
@@ -2041,6 +2091,8 @@ function setActiveRangeButton(idOrNull) {
 const resetFiltersBtn = document.getElementById('resetFiltersBtn');
 if (resetFiltersBtn) {
   resetFiltersBtn.addEventListener('click', () => {
+    const cf = document.getElementById('confluenceFilter');
+if (cf) Array.from(cf.options).forEach(o => o.selected = false);
     // Par
     const pf = document.getElementById('pairFilter');
     if (pf) pf.value = 'ALL';
@@ -2065,7 +2117,8 @@ if (df) df.value = 'ALL';
 
     // Quitar rango activo (histórico completo)
     setActiveRangeButton(null);
-
+const si = document.getElementById('searchInput');
+if (si) si.value = '';
     // Render histórico completo
     renderAll(ALL_TRADES);
   });
@@ -2165,6 +2218,8 @@ function wireAutoFilters() {
   const tTo    = document.getElementById('timeTo');
   const sDate  = document.getElementById('startDate');
   const eDate  = document.getElementById('endDate');
+  const confEl = document.getElementById('confluenceFilter');
+if (confEl) confEl.addEventListener('change', applyCurrentFilters);
 
   if (pairEl) pairEl.addEventListener('change', applyCurrentFilters);
   if (dayEl)  dayEl.addEventListener('change', applyCurrentFilters);
@@ -2269,6 +2324,7 @@ wireAutoFilters();
         // Replace global trades and update UI
         ALL_TRADES = trades;
         populatePairFilter(ALL_TRADES);
+        populateConfluenceFilter(ALL_TRADES);
         applyCurrentFilters();
         // Update last update time
         const now = new Date();
