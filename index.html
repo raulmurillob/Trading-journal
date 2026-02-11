@@ -382,6 +382,95 @@ input[type="time"],
 input[type="date"] {
   accent-color: #ffffff;
 }
+/* ===== Multi-select dropdown (Confluencias) ===== */
+.multi-select { position: relative; min-width: 260px; }
+
+.multi-select-btn{
+  width: 260px;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  color: var(--text);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 0.6rem;
+  cursor:pointer;
+}
+
+.multi-select-btn .chev{ color: var(--muted); font-size: 0.9rem; }
+
+.multi-select-panel{
+  position:absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.35);
+  padding: 0.6rem;
+  display:none;
+  z-index: 50;
+}
+
+.multi-select.open .multi-select-panel{ display:block; }
+
+.multi-select-search input{
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.5rem;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.multi-select-actions{
+  display:flex;
+  justify-content:space-between;
+  margin-top: 0.45rem;
+  margin-bottom: 0.45rem;
+}
+
+.multi-select-actions .link{
+  background: transparent;
+  border: none;
+  color: var(--accent-light);
+  cursor:pointer;
+  font-weight: 600;
+  padding: 0.2rem 0.2rem;
+}
+
+.multi-select-list{
+  max-height: 220px;
+  overflow:auto;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding-top: 0.45rem;
+}
+
+.multi-select-item{
+  display:flex;
+  align-items:center;
+  gap: 0.55rem;
+  padding: 0.35rem 0.3rem;
+  border-radius: 0.4rem;
+  cursor:pointer;
+}
+
+.multi-select-item:hover{
+  background: rgba(255,255,255,0.04);
+}
+
+.multi-select-item input{
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+.multi-select-item span{
+  color: var(--text);
+  font-size: 0.85rem;
+}
   </style>
 </head>
 <body>
@@ -444,10 +533,25 @@ input[type="date"] {
 <div style="display:flex; justify-content:center; align-items:center; gap:0.5rem; margin-bottom:1rem; flex-wrap:wrap;">
   <label style="color:var(--muted); font-size:0.85rem;">Confluencias:</label>
 
-  <select id="confluenceFilter" multiple
-    style="padding:0.45rem 0.6rem; border:1px solid var(--border); border-radius:0.5rem;
-           background:var(--surface); color:var(--text); min-width:260px; height:110px;">
-  </select>
+  <div class="multi-select" id="confMulti">
+    <button type="button" class="multi-select-btn" id="confBtn">
+      <span id="confBtnLabel">Todas</span>
+      <span class="chev">▾</span>
+    </button>
+
+    <div class="multi-select-panel" id="confPanel">
+      <div class="multi-select-search">
+        <input type="text" id="confSearch" placeholder="Buscar confluencia…">
+      </div>
+
+      <div class="multi-select-actions">
+        <button type="button" class="link" id="confAll">Seleccionar todo</button>
+        <button type="button" class="link" id="confNone">Limpiar</button>
+      </div>
+
+      <div class="multi-select-list" id="confList"></div>
+    </div>
+  </div>
 </div>
     <!-- KPI cards -->
     <div class="kpi-grid">
@@ -605,28 +709,76 @@ z-index:10000;
 
   sel.value = pairs.includes(current) ? current : 'ALL';
 }
-function populateConfluenceFilter(trades) {
-  const sel = document.getElementById('confluenceFilter');
-  if (!sel) return;
+let CONF_OPTIONS = [];
+let CONF_SELECTED = new Set();
 
+function populateConfluenceFilter(trades) {
   const set = new Set();
 
   (trades || []).forEach(t => {
     const raw = String(t.confluences || '').trim();
     if (!raw) return;
 
-    raw.split(',').map(x => x.trim()).filter(Boolean).forEach(c => set.add(c));
+    raw
+      .split(/,|;/)              // <- robusto
+      .map(x => x.trim())
+      .filter(Boolean)
+      .forEach(c => set.add(c));
   });
 
-  const current = Array.from(sel.selectedOptions).map(o => o.value);
+  CONF_OPTIONS = Array.from(set).sort();
 
-  sel.innerHTML = '';
-  Array.from(set).sort().forEach(c => {
-    const opt = document.createElement('option');
-    opt.value = c;
-    opt.textContent = c;
-    if (current.includes(c)) opt.selected = true;
-    sel.appendChild(opt);
+  // mantener seleccionadas las que sigan existiendo
+  CONF_SELECTED = new Set([...CONF_SELECTED].filter(x => CONF_OPTIONS.includes(x)));
+
+  renderConfluenceDropdown();
+  updateConfButtonLabel();
+}
+function getSelectedConfluences() {
+  return Array.from(CONF_SELECTED);
+}
+
+function updateConfButtonLabel() {
+  const el = document.getElementById('confBtnLabel');
+  if (!el) return;
+
+  const n = CONF_SELECTED.size;
+  if (n === 0) el.textContent = 'Todas';
+  else if (n === 1) el.textContent = [...CONF_SELECTED][0];
+  else el.textContent = `${n} seleccionadas`;
+}
+
+function renderConfluenceDropdown(filterText = '') {
+  const list = document.getElementById('confList');
+  if (!list) return;
+
+  const q = String(filterText || '').trim().toLowerCase();
+  const items = !q ? CONF_OPTIONS : CONF_OPTIONS.filter(x => x.toLowerCase().includes(q));
+
+  list.innerHTML = '';
+
+  items.forEach(name => {
+    const row = document.createElement('label');
+    row.className = 'multi-select-item';
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = CONF_SELECTED.has(name);
+
+    cb.addEventListener('change', () => {
+      if (cb.checked) CONF_SELECTED.add(name);
+      else CONF_SELECTED.delete(name);
+
+      updateConfButtonLabel();
+      applyCurrentFilters();
+    });
+
+    const sp = document.createElement('span');
+    sp.textContent = name;
+
+    row.appendChild(cb);
+    row.appendChild(sp);
+    list.appendChild(row);
   });
 }
     // Utility functions
@@ -1389,17 +1541,14 @@ if (dayEl && dayEl.value !== 'ALL') {
   });
 }
 // 1D) Filtro por CONFLUENCIAS (acumulativo)
-const confEl = document.getElementById('confluenceFilter');
-const selectedConfs = confEl
-  ? Array.from(confEl.selectedOptions).map(o => o.value)
-  : [];
+const selectedConfs = getSelectedConfluences();
 
 if (selectedConfs.length > 0) {
   filteredTrades = filteredTrades.filter(t => {
     const raw = String(t.confluences || '').trim();
     if (!raw) return false;
 
-    const tradeConfs = raw.split(',').map(x => x.trim());
+    const tradeConfs = raw.split(/,|;/).map(x => x.trim()).filter(Boolean);
     return selectedConfs.every(c => tradeConfs.includes(c));
   });
 }
@@ -2103,6 +2252,12 @@ if (cf) Array.from(cf.options).forEach(o => o.selected = false);
     if (hf) hf.value = '00:00';
     if (ht) ht.value = '23:59';
 
+    CONF_SELECTED.clear();
+updateConfButtonLabel();
+renderConfluenceDropdown('');
+const cs = document.getElementById('confSearch');
+if (cs) cs.value = '';
+
     // Custom range
     const cr = document.getElementById('customRange');
     if (cr) cr.style.display = 'none';
@@ -2218,8 +2373,6 @@ function wireAutoFilters() {
   const tTo    = document.getElementById('timeTo');
   const sDate  = document.getElementById('startDate');
   const eDate  = document.getElementById('endDate');
-  const confEl = document.getElementById('confluenceFilter');
-if (confEl) confEl.addEventListener('change', applyCurrentFilters);
 
   if (pairEl) pairEl.addEventListener('change', applyCurrentFilters);
   if (dayEl)  dayEl.addEventListener('change', applyCurrentFilters);
@@ -2249,7 +2402,52 @@ if (confEl) confEl.addEventListener('change', applyCurrentFilters);
     eDate.addEventListener('input', maybeApplyCustomRange);
   }
 }
+(function wireConfDropdown(){
+  const root = document.getElementById('confMulti');
+  const btn  = document.getElementById('confBtn');
+  const panel= document.getElementById('confPanel');
+  const s    = document.getElementById('confSearch');
+  const all  = document.getElementById('confAll');
+  const none = document.getElementById('confNone');
 
+  if (!root || !btn || !panel) return;
+
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    root.classList.toggle('open');
+    if (root.classList.contains('open')) {
+      setTimeout(() => s && s.focus(), 0);
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!root.contains(e.target)) root.classList.remove('open');
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') root.classList.remove('open');
+  });
+
+  if (s) {
+    s.addEventListener('input', () => {
+      renderConfluenceDropdown(s.value);
+    });
+  }
+
+  if (all) all.addEventListener('click', () => {
+    CONF_SELECTED = new Set(CONF_OPTIONS);
+    updateConfButtonLabel();
+    renderConfluenceDropdown(s ? s.value : '');
+    applyCurrentFilters();
+  });
+
+  if (none) none.addEventListener('click', () => {
+    CONF_SELECTED.clear();
+    updateConfButtonLabel();
+    renderConfluenceDropdown(s ? s.value : '');
+    applyCurrentFilters();
+  });
+})();
 // Ejecutar una sola vez
 wireAutoFilters();
 
