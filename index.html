@@ -1218,6 +1218,66 @@ calmar = Math.abs(maxDD) > 0 ? (totalReturn / Math.abs(maxDD)) : 0;
     twrSeries // ✅ IMPORTANTE: nuevo
   };
 }
+function simulateStrategies2R(trades) {
+  if (!Array.isArray(trades) || trades.length === 0) {
+    return { parcial: 0, fija: 0 };
+  }
+
+  let sumParcial = 0;
+  let sumFija = 0;
+  let count = 0;
+
+  trades.forEach(t => {
+    const sl = Number(t.sl_pips) || 0;
+    const mfe = Number(t.mfe_pips) || 0;
+    const outcome = String(t.outcome || '').toUpperCase();
+
+    if (!sl || sl <= 0) return;
+
+    const mfeR = mfe / sl;
+
+    // ===== Estrategia fija 2R =====
+    let rFija = 0;
+
+    if (mfeR >= 2) {
+      rFija = 2;
+    } else {
+      if (outcome === 'LOSS') rFija = -1;
+      else if (outcome === 'BE') rFija = 0;
+      else if (outcome === 'WIN') {
+        const pnl = Number(t.pnl) || 0;
+        rFija = pnl / sl;
+      }
+    }
+
+    // ===== Estrategia parcial (50% en 1R, BE en 2R, TP restante en 2R) =====
+    let rParcial = 0;
+
+    if (mfeR < 1) {
+      if (outcome === 'LOSS') rParcial = -1;
+      else if (outcome === 'BE') rParcial = 0;
+      else if (outcome === 'WIN') {
+        const pnl = Number(t.pnl) || 0;
+        rParcial = pnl / sl;
+      }
+    }
+    else if (mfeR >= 1 && mfeR < 2) {
+      rParcial = 0.5; // solo parcial
+    }
+    else if (mfeR >= 2) {
+      rParcial = 0.5 + (0.5 * 2); // parcial + resto a 2R
+    }
+
+    sumParcial += rParcial;
+    sumFija += rFija;
+    count++;
+  });
+
+  return {
+    parcial: count ? sumParcial / count : 0,
+    fija: count ? sumFija / count : 0
+  };
+}
     function computeCaptureMetrics(trades) {
       const dayMap = {};
       const weekMap = {};
@@ -1683,6 +1743,9 @@ const sorted = filteredTrades
 const rrMetrics = computeRRMetrics(filteredTrades);
       $('kpiRRReal').textContent = (Number(rrMetrics.avgReal).toFixed(2) + 'R');
       $('kpiRRPot').textContent  = (Number(rrMetrics.avgPot).toFixed(2) + 'R');
+      const sim = simulateStrategies2R(filteredTrades);
+console.log("Expectancia Parcial 2R:", sim.parcial.toFixed(3));
+console.log("Expectancia Fija 2R:", sim.fija.toFixed(3));
       // Compute MFE statistics (trimmed mean and 80th percentile).  We
       // compute these both on a risk‑adjusted basis (ratio of MFE to
       // stop‑loss size) and on raw pips.  This provides guidance on
