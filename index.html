@@ -1173,7 +1173,7 @@ const winRate = (wins + losses) > 0 ? wins / (wins + losses) : 0;
     const totalReturn = (twrSeries[twrSeries.length - 1].idx / (twrSeries[0].idx || 1)) - 1;
     const months = Math.max(1, monthMap.size);
     const annualReturn = Math.pow(1 + totalReturn, 12 / months) - 1;
-    calmar = Math.abs(maxDD) > 0 ? (annualReturn / Math.abs(maxDD)) : 0;
+calmar = Math.abs(maxDD) > 0 ? (totalReturn / Math.abs(maxDD)) : 0;
   } else {
     maxDD = 0;
     sharpe = 0;
