@@ -1852,11 +1852,10 @@ const mfePipsStats  = computeMFEStats(filteredTrades, true);
 updateEquityChart(metrics);
 updatePnlChart(filteredTrades);
 renderTable(TRADE_ROWS);
-    }
-    // ===== Comparación TP fijo vs Parciales (2R a 5R) =====
+// ===== Comparación TP fijo vs Parciales (2R a 5R) =====
 try {
-  // guard simple para no spamear: depende del set filtrado
   const key = `${TRADE_ROWS.length}|${TRADE_ROWS[0]?.date || ''}|${TRADE_ROWS[TRADE_ROWS.length-1]?.date || ''}`;
+
   if (window.__lastCompareKey !== key) {
     window.__lastCompareKey = key;
 
@@ -1868,6 +1867,7 @@ try {
 } catch (e) {
   console.warn('No se pudo comparar estrategias:', e);
 }
+    }
 function updateEquityChart(metricsOrEqSeries) {
   const metrics = (metricsOrEqSeries && metricsOrEqSeries.eqSeries) ? metricsOrEqSeries : null;
   const eqSeries = metrics ? (metrics.eqSeries || []) : (Array.isArray(metricsOrEqSeries) ? metricsOrEqSeries : []);
