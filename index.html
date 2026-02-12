@@ -2,12 +2,12 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Track Record Pro</title>
+  <title>Trading Journal</title>
   <link rel="icon" type="image/png" href="favicon.png">
 </head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Track Record Pro</title>
+  <title>Trading Journal</title>
   <!-- Chart.js and PapaParse via CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
@@ -582,6 +582,10 @@ input[type="date"] {
 <div class="kpi-card">
   <h3>TP Óptimo (con parciales)</h3>
   <div class="value" id="kpiTPOptimoParcial">0</div>
+</div>
+<div class="kpi-card">
+  <h3>TP Óptimo (parciales) en pips</h3>
+  <div class="value" id="kpiTPOptimoParcialPips">0</div>
 </div>
 </div>
     <!-- Charts container: equity and PnL side by side -->
@@ -1271,7 +1275,13 @@ function getField(obj, name) {
   const key = Object.keys(obj).find(k => String(k).trim().toLowerCase() === target);
   return key ? obj[key] : undefined;
 }
-
+function median(arr) {
+  const a = (arr || []).filter(v => Number.isFinite(v)).sort((x,y) => x - y);
+  const n = a.length;
+  if (!n) return 0;
+  const mid = Math.floor(n / 2);
+  return n % 2 ? a[mid] : (a[mid - 1] + a[mid]) / 2;
+}
 function toNum(v) {
   if (v === null || v === undefined) return NaN;
   // Convierte strings tipo "60.00", " 60 ", "$6.00" -> 60
@@ -1592,6 +1602,26 @@ const resParcial = computeTPOptimoConParciales(filteredTrades);
   console.error('Error TP Óptimo (con parciales):', err);
   const elParcial = document.getElementById('kpiTPOptimoParcial');
   if (elParcial) elParcial.textContent = '0R';
+}
+// KPI: TP Óptimo (con parciales) convertido a PIPS (usando mediana de SL)
+try {
+  const resParcial = computeTPOptimoConParciales(filteredTrades);
+
+  const slList = (filteredTrades || [])
+    .map(t => Number(t.sl_pips))
+    .filter(v => Number.isFinite(v) && v > 0);
+
+  const slMed = median(slList); // SL representativo del periodo
+  const tpPips = (resParcial && Number.isFinite(resParcial.tpR) && slMed > 0)
+    ? (resParcial.tpR * slMed)
+    : 0;
+
+  const el = document.getElementById('kpiTPOptimoParcialPips');
+  if (el) el.textContent = tpPips ? String(Math.round(tpPips)) : '0';
+} catch (err) {
+  console.error('Error TP Óptimo (parciales) pips:', err);
+  const el = document.getElementById('kpiTPOptimoParcialPips');
+  if (el) el.textContent = '0';
 }
       // Hide reset button if not in group filter mode
       const resetBtn = $('resetGroupBtn');
