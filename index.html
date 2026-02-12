@@ -1585,6 +1585,87 @@ function isRealTradeRow(t) {
 
   return true;
 }
+// ===== Comparador de estrategias (TP fijo vs parciales) =====
+function strategyFixedTP_R(trades, tpR) {
+  const rows = [];
+
+  for (const t of trades) {
+    const sl  = Number(t.sl_pips);
+    const mfe = Number(t.mfe_pips);
+    if (!Number.isFinite(sl) || sl <= 0) continue;
+    if (!Number.isFinite(mfe) || mfe < 0) continue;
+
+    const mfeR = mfe / sl;
+
+    // modelo base: si no alcanzó TP => -1R (SL completo)
+    const resultR = (mfeR >= tpR) ? tpR : -1;
+    rows.push(resultR);
+  }
+
+  if (!rows.length) return { expectancy: 0, n: 0 };
+  const expectancy = rows.reduce((a,b) => a + b, 0) / rows.length;
+  return { expectancy, n: rows.length };
+}
+
+function strategyPartial_R(trades, tpR, partialAtR = 1, beMoveR = 2, partialPct = 0.5) {
+  const rows = [];
+
+  for (const t of trades) {
+    const sl  = Number(t.sl_pips);
+    const mfe = Number(t.mfe_pips);
+    if (!Number.isFinite(sl) || sl <= 0) continue;
+    if (!Number.isFinite(mfe) || mfe < 0) continue;
+
+    const mfeR = mfe / sl;
+
+    let resultR;
+
+    if (mfeR < partialAtR) {
+      // nunca llegó al parcial
+      resultR = -1;
+    } else if (mfeR < beMoveR) {
+      // llegó al parcial, pero NO a BE move
+      // asumiendo que el 50% restante terminó en SL (-1R sobre la mitad restante)
+      // total: +partialPct*partialAtR + (1-partialPct)*(-1)
+      resultR = (partialPct * partialAtR) + ((1 - partialPct) * (-1));
+      // con partialPct=0.5 y partialAtR=1 => 0.5 - 0.5 = 0.0R
+      // ✅ ESTA es la parte clave de tu comentario.
+      // Si tú NO mueves a BE antes de 2R, entonces entre 1R y <2R NO es +0.5R,
+      // es ~0R (si el resto se va a SL). Este modelo lo refleja.
+    } else if (mfeR < tpR) {
+      // llegó a 2R, mueves SL a BE, pero no alcanzó TP final
+      // te quedas con el parcial solamente
+      resultR = partialPct * partialAtR; // 0.5R
+    } else {
+      // alcanzó TP final: parcial + resto al tpR
+      resultR = (partialPct * partialAtR) + ((1 - partialPct) * tpR);
+      // 0.5*1 + 0.5*tpR
+    }
+
+    rows.push(resultR);
+  }
+
+  if (!rows.length) return { expectancy: 0, n: 0 };
+  const expectancy = rows.reduce((a,b) => a + b, 0) / rows.length;
+  return { expectancy, n: rows.length };
+}
+
+function compareStrategies_R(trades, rMin = 2, rMax = 5, step = 0.5) {
+  const out = [];
+  for (let tpR = rMin; tpR <= rMax + 1e-9; tpR += step) {
+    const fixed = strategyFixedTP_R(trades, tpR);
+    const part  = strategyPartial_R(trades, tpR, 1, 2, 0.5);
+
+    out.push({
+      TP_R: Number(tpR.toFixed(2)),
+      Exp_Fija_R: Number(fixed.expectancy.toFixed(3)),
+      Exp_Parcial_R: Number(part.expectancy.toFixed(3)),
+      Delta_Fija_Menos_Parcial: Number((fixed.expectancy - part.expectancy).toFixed(3)),
+      N: Math.min(fixed.n, part.n)
+    });
+  }
+  return out;
+}
     // Render metrics and charts
     function renderAll(trades) {
 
@@ -1772,6 +1853,21 @@ updateEquityChart(metrics);
 updatePnlChart(filteredTrades);
 renderTable(TRADE_ROWS);
     }
+    // ===== Comparación TP fijo vs Parciales (2R a 5R) =====
+try {
+  // guard simple para no spamear: depende del set filtrado
+  const key = `${TRADE_ROWS.length}|${TRADE_ROWS[0]?.date || ''}|${TRADE_ROWS[TRADE_ROWS.length-1]?.date || ''}`;
+  if (window.__lastCompareKey !== key) {
+    window.__lastCompareKey = key;
+
+    const rows = compareStrategies_R(TRADE_ROWS, 2, 5, 0.5);
+    console.groupCollapsed('Comparación estrategias (2R → 5R)');
+    console.table(rows);
+    console.groupEnd();
+  }
+} catch (e) {
+  console.warn('No se pudo comparar estrategias:', e);
+}
 function updateEquityChart(metricsOrEqSeries) {
   const metrics = (metricsOrEqSeries && metricsOrEqSeries.eqSeries) ? metricsOrEqSeries : null;
   const eqSeries = metrics ? (metrics.eqSeries || []) : (Array.isArray(metricsOrEqSeries) ? metricsOrEqSeries : []);
