@@ -1387,6 +1387,13 @@ function toNum(v) {
 // - NO mueves a BE hasta 2R
 // - Si llega a 2R, mueves SL a BE y ya no pierdes (te quedas con +0.5R)
 // - Si llega al TP final (tpR), cierras el 50% restante a tpR => total = 0.5R + 0.5*tpR
+// TP óptimo considerando tu estrategia REAL:
+// - Si llega a 1R, tomas 50% => +0.5R
+// - NO mueves a BE hasta 2R
+// - Si llega a 1R pero NO a 2R: el 50% restante sigue con SL -> asume que termina en SL => -0.5R
+//   => neto = 0R
+// - Si llega a 2R, mueves SL a BE: si no llega al TP final, el resto termina BE => neto = +0.5R
+// - Si llega al TP final (tpR): neto = +0.5R + 0.5*tpR
 function computeTPOptimoConParciales(trades) {
   const rows = [];
 
@@ -1404,31 +1411,31 @@ function computeTPOptimoConParciales(trades) {
   let bestTPR = null;
   let bestExp = -Infinity;
 
-  // buscamos TP desde 1R hasta maxR (porque si tpR < 1 no tiene sentido con tu parcial)
+  // buscamos TP desde 1R hasta maxR
   for (let tpR = 1.0; tpR <= maxR; tpR += 0.1) {
     let sum = 0;
 
     for (const r of rows) {
       const mfeR = r.mfe / r.sl;
 
-      // Resultado por trade, en R, siguiendo tu lógica
       let resultR;
 
       if (mfeR < 1) {
-        // nunca llegó al parcial, puede haber sido SL => -1R (modelo base)
+        // nunca llegó al parcial -> asumimos SL completo
         resultR = -1;
       } else if (mfeR < 2) {
-        // llegó a 1R (parcial) pero no a 2R, asumimos que se dio la vuelta y terminó BE neto en la segunda mitad
-        // => total = +0.5R
-        resultR = 0.5;
+        // llegó a 1R (parcial +0.5R) pero NO a 2R, nunca moviste a BE:
+        // asumimos que el 50% restante termina en SL (-0.5R)
+        // neto = 0R
+        resultR = 0;
       } else if (mfeR < tpR) {
-        // llegó a 2R, mueves SL a BE, si no llegó al TP final, termina BE en la segunda mitad
-        // => total = +0.5R
+        // llegó a 2R, mueves a BE, pero no alcanzó TP final:
+        // te quedas con el parcial (+0.5R), el resto BE
         resultR = 0.5;
       } else {
-        // llegó al TP final:
-        // 50% cerrado en 1R => +0.5R
-        // 50% restante cerrado en tpR => +0.5*tpR
+        // alcanzó TP final:
+        // 50% en 1R => +0.5R
+        // 50% en tpR => +0.5*tpR
         resultR = 0.5 + 0.5 * tpR;
       }
 
