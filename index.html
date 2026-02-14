@@ -683,7 +683,9 @@ input[type="date"] {
         <tr>
           <th>TP (R)</th>
           <th>Exp. TP fijo (R)</th>
+          <th>WR fijo</th>
           <th>Exp. Parciales (R)</th>
+          <th>WR parciales</th>
           <th>Δ (Fijo - Parciales)</th>
           <th>N</th>
         </tr>
@@ -1674,15 +1676,19 @@ function strategyFixedTP_R(trades, tpR) {
     if (!Number.isFinite(mfe) || mfe < 0) continue;
 
     const mfeR = mfe / sl;
-
-    // modelo base: si no alcanzó TP => -1R (SL completo)
     const resultR = (mfeR >= tpR) ? tpR : -1;
     rows.push(resultR);
   }
 
-  if (!rows.length) return { expectancy: 0, n: 0 };
+  if (!rows.length) return { expectancy: 0, winRate: 0, n: 0 };
+
   const expectancy = rows.reduce((a,b) => a + b, 0) / rows.length;
-  return { expectancy, n: rows.length };
+
+  const wins = rows.filter(r => r > 0).length;
+  const losses = rows.filter(r => r < 0).length;
+  const winRate = (wins + losses) ? (wins / (wins + losses)) : 0;
+
+  return { expectancy, winRate, n: rows.length };
 }
 
 function strategyPartial_R(trades, tpR, partialAtR = 1, beMoveR = 2, partialPct = 0.5) {
@@ -1695,37 +1701,31 @@ function strategyPartial_R(trades, tpR, partialAtR = 1, beMoveR = 2, partialPct 
     if (!Number.isFinite(mfe) || mfe < 0) continue;
 
     const mfeR = mfe / sl;
-
     let resultR;
 
     if (mfeR < partialAtR) {
-      // nunca llegó al parcial
       resultR = -1;
     } else if (mfeR < beMoveR) {
-      // llegó al parcial, pero NO a BE move
-      // asumiendo que el 50% restante terminó en SL (-1R sobre la mitad restante)
-      // total: +partialPct*partialAtR + (1-partialPct)*(-1)
       resultR = (partialPct * partialAtR) + ((1 - partialPct) * (-1));
-      // con partialPct=0.5 y partialAtR=1 => 0.5 - 0.5 = 0.0R
-      // ✅ ESTA es la parte clave de tu comentario.
-      // Si tú NO mueves a BE antes de 2R, entonces entre 1R y <2R NO es +0.5R,
-      // es ~0R (si el resto se va a SL). Este modelo lo refleja.
+      // = 0R con 50% en 1R
     } else if (mfeR < tpR) {
-      // llegó a 2R, mueves SL a BE, pero no alcanzó TP final
-      // te quedas con el parcial solamente
-      resultR = partialPct * partialAtR; // 0.5R
+      resultR = partialPct * partialAtR; // +0.5R
     } else {
-      // alcanzó TP final: parcial + resto al tpR
       resultR = (partialPct * partialAtR) + ((1 - partialPct) * tpR);
-      // 0.5*1 + 0.5*tpR
     }
 
     rows.push(resultR);
   }
 
-  if (!rows.length) return { expectancy: 0, n: 0 };
+  if (!rows.length) return { expectancy: 0, winRate: 0, n: 0 };
+
   const expectancy = rows.reduce((a,b) => a + b, 0) / rows.length;
-  return { expectancy, n: rows.length };
+
+  const wins = rows.filter(r => r > 0).length;
+  const losses = rows.filter(r => r < 0).length;
+  const winRate = (wins + losses) ? (wins / (wins + losses)) : 0;
+
+  return { expectancy, winRate, n: rows.length };
 }
 
 function compareStrategies_R(trades, rMin = 2, rMax = 5, step = 0.5) {
@@ -1737,7 +1737,9 @@ function compareStrategies_R(trades, rMin = 2, rMax = 5, step = 0.5) {
     out.push({
       TP_R: Number(tpR.toFixed(2)),
       Exp_Fija_R: Number(fixed.expectancy.toFixed(3)),
+      WR_Fija: fixed.winRate,
       Exp_Parcial_R: Number(part.expectancy.toFixed(3)),
+      WR_Parcial: part.winRate,
       Delta_Fija_Menos_Parcial: Number((fixed.expectancy - part.expectancy).toFixed(3)),
       N: Math.min(fixed.n, part.n)
     });
@@ -2840,7 +2842,9 @@ function renderSimTable(rows) {
     tr.innerHTML = `
       <td class="mono">${r.TP_R.toFixed(2)}</td>
       <td class="mono">${r.Exp_Fija_R.toFixed(3)}</td>
+      <td class="mono">${(r.WR_Fija * 100).toFixed(1)}%</td>
       <td class="mono">${r.Exp_Parcial_R.toFixed(3)}</td>
+      <td class="mono">${(r.WR_Parcial * 100).toFixed(1)}%</td>
       <td class="mono ${cls}">${r.Delta_Fija_Menos_Parcial.toFixed(3)}</td>
       <td class="mono">${r.N}</td>
     `;
