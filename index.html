@@ -2,15 +2,15 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <title>Trading Journal</title>
   <link rel="icon" type="image/png" href="favicon.png">
-</head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Trading Journal</title>
+
   <!-- Chart.js and PapaParse via CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
   <style>
     /* Core color palette */
     :root {
@@ -981,10 +981,22 @@ const img =
   raw.image ?? raw.img ?? raw.screenshot ??
   raw.captura ?? raw.Captura ?? raw.CAPTURA ??
   raw['captura'] ?? raw['CAPTURA'] ?? '';
-      // Extract stop loss, take profit, and max favorable excursion in pips
-      const slVal = raw.SL ?? raw.sl ?? raw['Sl'] ?? raw['sl'] ?? null;
-      const tpVal = raw.TP ?? raw.tp ?? raw['Tp'] ?? raw['tp'] ?? null;
-      const mfeVal = raw.MFE ?? raw.mfe ?? raw['Mfe'] ?? raw['mfe'] ?? null;
+ const slVal = raw.SL ?? raw.sl ?? raw['Sl'] ?? raw['sl'] ?? null;
+
+// ✅ TP1 / TP2 (soporta variantes comunes)
+const tp1Val =
+  raw.TP1 ?? raw.tp1 ?? raw['Tp1'] ?? raw['tp1'] ??
+  raw['TP 1'] ?? raw['TP_1'] ?? raw['TP-1'] ?? null;
+
+const tp2Val =
+  raw.TP2 ?? raw.tp2 ?? raw['Tp2'] ?? raw['tp2'] ??
+  raw['TP 2'] ?? raw['TP_2'] ?? raw['TP-2'] ?? null;
+
+// ✅ TP legacy (si todavía existe la columna "TP")
+const tpLegacyVal =
+  raw.TP ?? raw.tp ?? raw['Tp'] ?? raw['tp'] ?? null;
+
+const mfeVal = raw.MFE ?? raw.mfe ?? raw['Mfe'] ?? raw['mfe'] ?? null;
       return {
         date: String(date).trim(),
         pnl: Number(pnl) || 0,
@@ -1006,8 +1018,15 @@ cashflow: Number(cashflow) || 0,
         ,
         // New properties for RR metrics (numeric).  Null if missing.
         sl_pips: (slVal !== null && slVal !== undefined && String(slVal).trim() !== '') ? (Number(slVal) || 0) : null,
-        tp_pips: (tpVal !== null && tpVal !== undefined && String(tpVal).trim() !== '') ? (Number(tpVal) || 0) : null,
-        mfe_pips: (mfeVal !== null && mfeVal !== undefined && String(mfeVal).trim() !== '') ? (Number(mfeVal) || 0) : null
+
+// ✅ nuevos campos
+tp1_pips: (tp1Val !== null && tp1Val !== undefined && String(tp1Val).trim() !== '') ? (Number(tp1Val) || 0) : null,
+tp2_pips: (tp2Val !== null && tp2Val !== undefined && String(tp2Val).trim() !== '') ? (Number(tp2Val) || 0) : null,
+
+// ✅ tp_pips queda como legacy (TP viejo), NO como TP2
+tp_pips: (tpLegacyVal !== null && tpLegacyVal !== undefined && String(tpLegacyVal).trim() !== '') ? (Number(tpLegacyVal) || 0) : null,
+
+mfe_pips: (mfeVal !== null && mfeVal !== undefined && String(mfeVal).trim() !== '') ? (Number(mfeVal) || 0) : null
       };
     }
     // Group trades by function key
@@ -1358,41 +1377,65 @@ function toNum(v) {
      * averages if its `sl_pips` is zero or missing.
      */
     function computeRRMetrics(trades) {
-      let sumReal = 0, countReal = 0;
-      let sumPot  = 0, countPot  = 0;
-      const potList = [];
-      trades.forEach(t => {
-        const sl = t.sl_pips;
-        if (!sl || !Number.isFinite(sl) || sl === 0) return;
-        const tp  = t.tp_pips;
-        const mfe = t.mfe_pips;
-        if (tp != null && isFinite(tp)) {
-          sumReal += tp / sl;
-          countReal++;
-        }
-        if (mfe != null && isFinite(mfe)) {
-          const r = mfe / sl;
-          sumPot += r;
-          countPot++;
-          potList.push(r);
-        }
-      });
-      const avgReal = countReal ? (sumReal / countReal) : 0;
-      const avgPot  = countPot  ? (sumPot  / countPot)  : 0;
-      const avgGap  = (countReal && countPot) ? (avgPot - avgReal) : 0;
-      potList.sort((a,b) => a - b);
-      let median = 0, p80 = 0;
-      const n = potList.length;
-      if (n > 0) {
-        const mid = Math.floor(n / 2);
-        median = n % 2 ? potList[mid] : (potList[mid - 1] + potList[mid]) / 2;
-        const idx = 0.8 * (n - 1);
-        const lower = Math.floor(idx);
-        const upper = Math.ceil(idx);
-        p80 = (lower === upper) ? potList[lower] : (potList[lower] + (potList[upper] - potList[lower]) * (idx - lower));
-      }
-      return { avgReal, avgPot, avgGap, medianPot: median, p80Pot: p80 };
+  let sumReal = 0, countReal = 0;
+  let sumPot  = 0, countPot  = 0;
+  const potList = [];
+
+  trades.forEach(t => {
+    const sl = Number(t.sl_pips);
+    if (!Number.isFinite(sl) || sl === 0) return;
+
+    const mfe = Number(t.mfe_pips);
+    if (Number.isFinite(mfe)) {
+      const r = mfe / sl;
+      sumPot += r;
+      countPot++;
+      potList.push(r);
     }
+
+    // ✅ RR real: si hay TP1/TP2 usar neto 50/50. Si no, usar TP legacy.
+    const tp1 = Number(t.tp1_pips);
+    const tp2 = Number(t.tp2_pips);
+
+    let tpNet = null;
+
+    if (Number.isFinite(tp1) || Number.isFinite(tp2)) {
+      const a = Number.isFinite(tp1) ? tp1 : 0;
+      const b = Number.isFinite(tp2) ? tp2 : 0;
+      tpNet = 0.5 * a + 0.5 * b;
+    } else {
+      const tpLegacy = Number(t.tp_pips);
+      if (Number.isFinite(tpLegacy)) tpNet = tpLegacy;
+    }
+
+    if (tpNet !== null) {
+      sumReal += tpNet / sl;
+      countReal++;
+    }
+  });
+
+  const avgReal = countReal ? (sumReal / countReal) : 0;
+  const avgPot  = countPot  ? (sumPot  / countPot)  : 0;
+  const avgGap  = (countReal && countPot) ? (avgPot - avgReal) : 0;
+
+  potList.sort((a,b) => a - b);
+  let median = 0, p80 = 0;
+  const n = potList.length;
+
+  if (n > 0) {
+    const mid = Math.floor(n / 2);
+    median = n % 2 ? potList[mid] : (potList[mid - 1] + potList[mid]) / 2;
+
+    const idx = 0.8 * (n - 1);
+    const lower = Math.floor(idx);
+    const upper = Math.ceil(idx);
+    p80 = (lower === upper)
+      ? potList[lower]
+      : (potList[lower] + (potList[upper] - potList[lower]) * (idx - lower));
+  }
+
+  return { avgReal, avgPot, avgGap, medianPot: median, p80Pot: p80 };
+}
 
     /**
      * Compute statistics on the max favourable excursion (MFE) values in pips.
@@ -2330,8 +2373,8 @@ if (closeBtn) {
       // Format numeric values to two decimals where possible
       { label: 'Entrada', value: isNaN(Number(trade.entry)) ? trade.entry : fmt2(Number(trade.entry)) },
       { label: 'Stop', value: isNaN(Number(trade.sl)) ? trade.sl : fmt2(Number(trade.sl)) },
-{ label: 'TP', value: isNaN(Number(trade.target)) ? trade.target : fmt2(Number(trade.target)) },
-        { label: 'PnL', value: fmt2(trade.pnl) },
+{ label: 'TP1 (pips)', value: (trade.tp1_pips ?? '-') },
+{ label: 'TP2 (pips)', value: (trade.tp2_pips ?? '-') },        { label: 'PnL', value: fmt2(trade.pnl) },
         { label: 'Setup', value: trade.setup },
         { label: 'Confluencias', value: trade.confluences },
         { label: 'Comentario', value: trade.comment }
@@ -2440,8 +2483,6 @@ function setActiveRangeButton(idOrNull) {
 const resetFiltersBtn = document.getElementById('resetFiltersBtn');
 if (resetFiltersBtn) {
   resetFiltersBtn.addEventListener('click', () => {
-    const cf = document.getElementById('confluenceFilter');
-if (cf) Array.from(cf.options).forEach(o => o.selected = false);
     // Par
     const pf = document.getElementById('pairFilter');
     if (pf) pf.value = 'ALL';
