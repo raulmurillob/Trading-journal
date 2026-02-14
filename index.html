@@ -574,6 +574,8 @@ input[type="date"] {
       <!-- KPI cards for Risk:Reward analysis -->
       <div class="kpi-card"><h3>RR real prom.</h3><div class="value" id="kpiRRReal">0.00R</div></div>
       <div class="kpi-card"><h3>RR potencial prom.</h3><div class="value" id="kpiRRPot">0.00R</div></div>
+      <div class="kpi-card"><h3>Pips potencial prom.</h3><div class="value" id="kpiPipsPotProm">0</div></div>
+      
     <!-- New KPI card showing the optimal take‑profit level computed from the MFE P80 statistic. -->
     <div class="kpi-card">
   <h3>TP Óptimo (máx. expectancia)</h3>
@@ -1904,6 +1906,25 @@ const sorted = filteredTrades
 const rrMetrics = computeRRMetrics(filteredTrades);
       $('kpiRRReal').textContent = (Number(rrMetrics.avgReal).toFixed(2) + 'R');
       $('kpiRRPot').textContent  = (Number(rrMetrics.avgPot).toFixed(2) + 'R');
+      // KPI: Pips potencial prom. (promedio de MFE en pips)
+try {
+  const rows = (filteredTrades || []).filter(isRealTradeRow);
+
+  const mfeList = rows
+    .map(t => Number(t.mfe_pips))
+    .filter(v => Number.isFinite(v) && v > 0);
+
+  const avg = mfeList.length
+    ? mfeList.reduce((a,b) => a + b, 0) / mfeList.length
+    : 0;
+
+  const el = document.getElementById('kpiPipsPotProm');
+  if (el) el.textContent = avg ? `${avg.toFixed(0)} pips` : '0';
+} catch (err) {
+  console.error('Error Pips potencial prom.:', err);
+  const el = document.getElementById('kpiPipsPotProm');
+  if (el) el.textContent = '0';
+}
       const sim = simulateStrategies2R(filteredTrades);
 console.log("Expectancia Parcial 2R:", sim.parcial.toFixed(3));
 console.log("Expectancia Fija 2R:", sim.fija.toFixed(3));
