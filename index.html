@@ -1365,40 +1365,58 @@ function renderPropFirmDashboard(rows) {
   if (!canvas) return;
 
   if (pfEquityChart) pfEquityChart.destroy();
-  pfEquityChart = new Chart(canvas, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Net cumulative P&L ($)',
-        data,
-        fill: true,
-        borderColor: 'rgb(34,197,94)',
-        backgroundColor: 'rgba(34,197,94,0.18)',
-        pointRadius: 0,
-        tension: 0.25,
-        borderWidth: 2
-      }]
-    },
-    options: {
-      responsive: true,
-      interaction: { mode: 'index', intersect: false, axis: 'x' },
-      plugins: { legend: { display: false } },
-      scales: {
-        x: {
-          ticks: {
-            color: '#94a3b8',
-            callback: (v, i) => formatDateLabel(labels[i])
-          },
-          grid: { color: 'rgba(255,255,255,0.05)' }
-        },
-        y: {
-          ticks: { color: '#94a3b8' },
-          grid: { color: 'rgba(255,255,255,0.05)' }
+pfEquityChart = new Chart(canvas, {
+  type: 'line',
+  data: {
+    labels,
+    datasets: [{
+      label: 'Net cumulative P&L ($)',
+      data,
+      pointRadius: 0,
+      tension: 0.25,
+      borderWidth: 2,
+
+      // ✅ Relleno arriba/abajo de 0
+      fill: {
+        target: { value: 0 },
+        above: 'rgba(34,197,94,0.18)',  // verde
+        below: 'rgba(220,38,38,0.18)'   // rojo
+      },
+
+      // ✅ Línea arriba/abajo de 0 (por segmentos)
+      segment: {
+        borderColor: ctx => {
+          const y0 = ctx.p0.parsed.y;
+          const y1 = ctx.p1.parsed.y;
+          // si ambos puntos están debajo de 0 => rojo
+          if (y0 < 0 && y1 < 0) return 'rgb(220,38,38)';
+          // si ambos arriba => verde
+          if (y0 >= 0 && y1 >= 0) return 'rgb(34,197,94)';
+          // si cruza 0, lo dejo verde (o rojo) — tú decide
+          return 'rgb(34,197,94)';
         }
       }
+    }]
+  },
+  options: {
+    responsive: true,
+    interaction: { mode: 'index', intersect: false, axis: 'x' },
+    plugins: { legend: { display: false } },
+    scales: {
+      x: {
+        ticks: {
+          color: '#94a3b8',
+          callback: (v, i) => formatDateLabel(labels[i])
+        },
+        grid: { color: 'rgba(255,255,255,0.05)' }
+      },
+      y: {
+        ticks: { color: '#94a3b8' },
+        grid: { color: 'rgba(255,255,255,0.05)' }
+      }
     }
-  });
+  }
+});
 }
 function simulateStrategies2R(trades) {
   if (!Array.isArray(trades) || trades.length === 0) {
