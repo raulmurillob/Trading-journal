@@ -679,6 +679,26 @@ input[type="date"] {
     </table>
   </div>
 </div>
+<!-- ===== Prop Firms Dashboard ===== -->
+<div style="margin-top:2rem;">
+  <h2 style="text-align:center; margin:0 0 0.75rem;">Prop Firms</h2>
+
+  <div class="kpi-grid">
+    <div class="kpi-card"><h3>Total Payouts</h3><div class="value" id="pfTotalPayouts">$0</div></div>
+    <div class="kpi-card"><h3>Challenge Costs</h3><div class="value" id="pfChallengeCosts">$0</div></div>
+    <div class="kpi-card"><h3>Refunds</h3><div class="value" id="pfRefunds">$0</div></div>
+    <div class="kpi-card"><h3>Net Profit</h3><div class="value" id="pfNetProfit">$0</div></div>
+    <div class="kpi-card"><h3>ROI</h3><div class="value" id="pfROI">0.00%</div></div>
+    <div class="kpi-card"><h3>Payout Count</h3><div class="value" id="pfPayoutCount">0</div></div>
+  </div>
+
+  <div class="chart-wrapper">
+    <div class="chart-header">
+      <h3>Net cumulative P&amp;L (USD)</h3>
+    </div>
+    <canvas id="pfEquityChart" height="140"></canvas>
+  </div>
+</div>
     </div>
   </div>
    <!-- Lightbox para ampliar capturas -->
@@ -910,6 +930,9 @@ function formatDateLabel(label) {
     let ALL_TRADES = [];
     let FILTERED_TRADES = [];
     let equityChart, pnlChart;
+    let PF_ROWS = [];
+let pfEquityChart = null;
+let PF_TIMER = null;
 
     // User-defined capital (account size) used to calculate percentage returns
     let accountSize = 10000;
@@ -1256,6 +1279,126 @@ calmar = Math.abs(maxDD) > 0 ? (totalReturn / Math.abs(maxDD)) : 0;
     expectancy,
     twrSeries // ✅ IMPORTANTE: nuevo
   };
+}
+function normalizePropFirm(raw) {
+  const date   = raw.date ?? raw.Date ?? raw.data ?? raw.Data ?? '';
+  const firm   = raw.firm ?? raw.Firm ?? '';
+  const acct   = raw.account ?? raw.Account ?? '';
+  const type   = raw.type ?? raw.Type ?? '';
+  const amountRaw = raw.amount ?? raw.Amount ?? 0;
+  const notes  = raw.notes ?? raw.Notes ?? '';
+
+  const amount = Number(String(amountRaw).replace(/,/g,'').replace(/[^0-9.\-]/g,'')) || 0;
+
+  return {
+    date: String(date).trim(),
+    firm: String(firm).trim(),
+    account: String(acct).trim(),
+    type: String(type).trim(),
+    amount,
+    notes: String(notes).trim()
+  };
+}
+
+function money(n) {
+  const v = Number(n) || 0;
+  const sign = v < 0 ? '-' : '';
+  const abs = Math.abs(v);
+  return sign + '$' + abs.toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+
+function computePropFirmMetrics(rows) {
+  const clean = (rows || [])
+.filter(r => {
+  const d = parseDate(r.date);
+  return d && !isNaN(d.getTime());
+})
+    .sort((a,b) => (parseDate(a.date) ?? 0) - (parseDate(b.date) ?? 0));
+
+  const sumByType = (t) =>
+    clean.filter(r => String(r.type).toLowerCase() === t.toLowerCase())
+         .reduce((a,r) => a + (Number(r.amount)||0), 0);
+
+  const payouts  = sumByType('Payout');   // +
+  const refunds  = sumByType('Refund');   // +
+  const purchase = sumByType('Purchase'); // -
+  const fees     = sumByType('Fee');      // -
+
+  const netProfit = clean.reduce((a,r) => a + (Number(r.amount)||0), 0);
+
+  const invested = Math.abs(purchase) + Math.abs(fees);
+  const roi = invested > 0 ? (netProfit / invested) : 0;
+
+  const payoutCount = clean.filter(r => String(r.type).toLowerCase() === 'payout').length;
+
+  // Equity curve = acumulado neto
+  let cum = 0;
+  const series = clean.map(r => {
+    cum += (Number(r.amount)||0);
+    return { date: r.date, value: cum };
+  });
+
+  return { payouts, refunds, purchase, fees, netProfit, roi, payoutCount, series };
+}
+
+function renderPropFirmDashboard(rows) {
+  const m = computePropFirmMetrics(rows);
+
+  const elPayouts  = document.getElementById('pfTotalPayouts');
+  const elCosts    = document.getElementById('pfChallengeCosts');
+  const elRefunds  = document.getElementById('pfRefunds');
+  const elNet      = document.getElementById('pfNetProfit');
+  const elROI      = document.getElementById('pfROI');
+  const elCount    = document.getElementById('pfPayoutCount');
+
+  if (elPayouts) elPayouts.textContent = money(m.payouts);
+  if (elCosts)   elCosts.textContent   = money(Math.abs(m.purchase));
+  if (elRefunds) elRefunds.textContent = money(m.refunds);
+  if (elNet)     elNet.textContent     = money(m.netProfit);
+  if (elROI)     elROI.textContent     = (m.roi * 100).toFixed(2) + '%';
+  if (elCount)   elCount.textContent   = String(m.payoutCount);
+
+  const labels = m.series.map(p => p.date);
+  const data   = m.series.map(p => p.value);
+
+  const canvas = document.getElementById('pfEquityChart');
+  if (!canvas) return;
+
+  if (pfEquityChart) pfEquityChart.destroy();
+  pfEquityChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Net cumulative P&L ($)',
+        data,
+        fill: true,
+        borderColor: 'rgb(34,197,94)',
+        backgroundColor: 'rgba(34,197,94,0.18)',
+        pointRadius: 0,
+        tension: 0.25,
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false, axis: 'x' },
+      plugins: { legend: { display: false } },
+      scales: {
+        x: {
+          ticks: {
+            color: '#94a3b8',
+            callback: (v, i) => formatDateLabel(labels[i])
+          },
+          grid: { color: 'rgba(255,255,255,0.05)' }
+        },
+        y: {
+          ticks: { color: '#94a3b8' },
+          grid: { color: 'rgba(255,255,255,0.05)' }
+        }
+      }
+    }
+  });
 }
 function simulateStrategies2R(trades) {
   if (!Array.isArray(trades) || trades.length === 0) {
@@ -2675,8 +2818,10 @@ wireAutoFilters();
         });
         const trades = cleaned
           .map(normalize)
-          .filter(t => t.date && !isNaN(parseDate(t.date)) && Number.isFinite(t.pnl));
-        // Replace global trades and update UI
+.filter(t => {
+  const d = parseDate(t.date);
+  return d && !isNaN(d.getTime()) && Number.isFinite(t.pnl);
+});        // Replace global trades and update UI
         ALL_TRADES = trades;
         populatePairFilter(ALL_TRADES);
         populateConfluenceFilter(ALL_TRADES);
@@ -2708,7 +2853,47 @@ wireAutoFilters();
     // Start syncing with the user's provided Sheet.
     startAutoRefresh('https://docs.google.com/spreadsheets/d/e/2PACX-1vQCpyYDfCdQ7uwupJfK7VKqZU2tiruPfGC0o1yL3o-BzI1GEfJs2ZJ-4dQiIWe67Xy3vjrzPfRO9pFz/pub?gid=0&single=true&output=csv', 60);
   let simChart = null;
+function startAutoRefreshPropFirms(url, seconds = 60) {
+  async function loadPF() {
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) return;
 
+      const csv = await res.text();
+      const parsed = Papa.parse(csv, { header: true, skipEmptyLines: true });
+
+      const rawRows = (parsed.data || []);
+      const cleaned = rawRows.filter(row => {
+        const keys = Object.keys(row);
+        const allEmpty = keys.length === 0 || keys.every(k => String(row[k] ?? '').trim() === '');
+        return !allEmpty;
+      });
+
+      const rows = cleaned
+        .map(normalizePropFirm)
+        .filter(r => {
+          const d = parseDate(r.date);
+          return d && !isNaN(d.getTime());
+        });
+
+      PF_ROWS = rows;
+      renderPropFirmDashboard(PF_ROWS);
+
+    } catch (e) {
+      console.error('Prop Firms load error:', e);
+    }
+  }
+
+  if (PF_TIMER) clearInterval(PF_TIMER);
+
+  loadPF();
+  PF_TIMER = setInterval(loadPF, seconds * 1000);
+}
+
+startAutoRefreshPropFirms(
+  'https://docs.google.com/spreadsheets/d/e/2PACX-1vQCpyYDfCdQ7uwupJfK7VKqZU2tiruPfGC0o1yL3o-BzI1GEfJs2ZJ-4dQiIWe67Xy3vjrzPfRO9pFz/pub?gid=1561874690&single=true&output=csv',
+  60
+);
 function renderSimTable(rows) {
   const tb = document.getElementById('simTableBody');
   if (!tb) return;
