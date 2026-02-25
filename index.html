@@ -1358,8 +1358,54 @@ function renderPropFirmDashboard(rows) {
   if (elROI)     elROI.textContent     = (m.roi * 100).toFixed(2) + '%';
   if (elCount)   elCount.textContent   = String(m.payoutCount);
 
-  const labels = m.series.map(p => p.date);
-  const data   = m.series.map(p => p.value);
+// --- Insertar puntos extra cuando cruza 0 (para cambiar color exacto) ---
+const src = m.series
+  .map(p => ({ date: p.date, value: Number(p.value) || 0 }))
+  .filter(p => p.date);
+
+const labels2 = [];
+const data2 = [];
+
+function toMs(d) {
+  const dt = parseDate(d);
+  return dt ? dt.getTime() : null;
+}
+
+for (let i = 0; i < src.length; i++) {
+  const cur = src[i];
+  labels2.push(cur.date);
+  data2.push(cur.value);
+
+  if (i === src.length - 1) break;
+
+  const next = src[i + 1];
+
+  // Si hay cruce de signo entre cur y next (incluye cruce exacto)
+  const y0 = cur.value;
+  const y1 = next.value;
+
+  if ((y0 < 0 && y1 > 0) || (y0 > 0 && y1 < 0)) {
+    // Interpolación lineal para encontrar el punto donde y=0
+    const t = y0 / (y0 - y1); // proporción entre 0 y 1
+    const ms0 = toMs(cur.date);
+    const ms1 = toMs(next.date);
+
+    if (ms0 !== null && ms1 !== null) {
+      const msCross = Math.round(ms0 + (ms1 - ms0) * t);
+      const crossDate = new Date(msCross);
+
+      // Etiqueta "real" para el eje: guardamos ISO (Chart ya lo muestra con tu formatDateLabel)
+      const crossLabel = crossDate.toISOString().slice(0, 19).replace('T',' ');
+
+      labels2.push(crossLabel);
+      data2.push(0);
+    } else {
+      // fallback: si no se puede interpolar la fecha, igual mete el 0 con el label de next
+      labels2.push(next.date);
+      data2.push(0);
+    }
+  }
+}
 
   const canvas = document.getElementById('pfEquityChart');
   if (!canvas) return;
@@ -1368,19 +1414,24 @@ function renderPropFirmDashboard(rows) {
 pfEquityChart = new Chart(canvas, {
   type: 'line',
   data: {
-    labels,
-    datasets: [{
-      label: 'Net cumulative P&L ($)',
-      data,
-      pointRadius: 0,
-      tension: 0.25,
-      borderWidth: 2,
+    labels: labels2,
+datasets: [{
+  label: 'Net cumulative P&L ($)',
+  data: data2,                 // <- usa data2 (del punto 1/2)
+  pointRadius: 0,
+  tension: 0.25,
+  borderWidth: 2,
 
-      // ✅ Relleno arriba/abajo de 0
-      fill: {
-        target: { value: 0 },
-        above: 'rgba(34,197,94,0.18)',  // verde
-        below: 'rgba(220,38,38,0.18)'   // rojo
+  // ✅ Punto 3: color por segmento (rojo bajo 0, verde arriba)
+  segment: {
+    borderColor: (ctx) => (ctx.p0.parsed.y < 0 ? 'rgb(220,38,38)' : 'rgb(34,197,94)')
+  },
+
+  // ✅ Relleno separado arriba/abajo de 0
+  fill: {
+    target: { value: 0 },
+    above: 'rgba(34,197,94,0.18)',
+    below: 'rgba(220,38,38,0.18)'
       },
 
       // ✅ Línea arriba/abajo de 0 (por segmentos)
