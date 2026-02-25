@@ -1417,15 +1417,21 @@ pfEquityChart = new Chart(canvas, {
     labels: labels2,
 datasets: [{
   label: 'Net cumulative P&L ($)',
-  data: data2,                 // <- usa data2 (del punto 1/2)
+  data: data2,
   pointRadius: 0,
   tension: 0.25,
   borderWidth: 2,
 
-  // ✅ Punto 3: color por segmento (rojo bajo 0, verde arriba)
+  fill: {
+    target: { value: 0 },
+    above: 'rgba(34,197,94,0.18)',
+    below: 'rgba(220,38,38,0.18)'
+  },
+
   segment: {
     borderColor: (ctx) => (ctx.p0.parsed.y < 0 ? 'rgb(220,38,38)' : 'rgb(34,197,94)')
-  },
+  }
+}]
 
   // ✅ Relleno separado arriba/abajo de 0
   fill: {
@@ -1457,7 +1463,7 @@ datasets: [{
       x: {
         ticks: {
           color: '#94a3b8',
-          callback: (v, i) => formatDateLabel(labels[i])
+callback: (v, i) => formatDateLabel(labels2[i])
         },
         grid: { color: 'rgba(255,255,255,0.05)' }
       },
