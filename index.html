@@ -641,24 +641,7 @@ input[type="date"] {
       </table>
     </div>
 
-    <!-- Analysis charts -->
-    <div class="analysis-grid">
-      <div class="chart-wrapper">
-        <h3>Distribución por par</h3>
-        <canvas id="pairCountChart" height="200"></canvas>
-      </div>
-      <div class="chart-wrapper">
-        <h3>Win rate por par</h3>
-        <canvas id="pairWinChart" height="200"></canvas>
-      </div>
-      <div class="chart-wrapper">
-        <h3>Distribución por timeframe</h3>
-        <canvas id="tfCountChart" height="200"></canvas>
-      </div>
-      <div class="chart-wrapper">
-        <h3>Win rate por timeframe</h3>
-        <canvas id="tfWinChart" height="200"></canvas>
-      </div>
+  
       <div class="chart-wrapper" style="grid-column: 1 / -1;">
   <div class="chart-header" style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; flex-wrap:wrap;">
     <h3 style="margin:0;">Simulación: TP fijo vs Parciales (R)</h3>
@@ -931,8 +914,6 @@ function formatDateLabel(label) {
     // User-defined capital (account size) used to calculate percentage returns
     let accountSize = 10000;
 
-    // Additional charts for deeper analysis
-    let pairCountChart, pairWinChart, tfCountChart, tfWinChart;
 
     // Flag to track whether a group-based filter is active (clicking PnL bar)
     let groupFilterActive = false;
@@ -2212,131 +2193,8 @@ function updateEquityChart(metricsOrEqSeries) {
       }
     }
   });
-
-  // After updating PnL chart, refresh analysis charts too
-  updateAnalysisCharts(trades);
 }
-    // Update analysis charts (distribution and win rates)
-    function updateAnalysisCharts(trades) {
-      // Determine starting equity to convert PnL sums into returns; use first entry of equity series
-      const m = computeMetrics(trades);
-      const startEquity = m.eqSeries && m.eqSeries.length ? m.eqSeries[0].equity : 1;
-      // Helper to compute counts and win rates by key (symbol or timeframe)
-      function computeStats(keyExtractor) {
-        const counts = {};
-        const wins   = {};
-        trades.forEach(t => {
-          const key = keyExtractor(t) || 'Otro';
-          counts[key] = (counts[key] || 0) + 1;
-          wins[key]   = (wins[key] || 0) + (t.pnl > 0 ? 1 : 0);
-        });
-        const labels = Object.keys(counts);
-        const countData = labels.map(k => counts[k]);
-        const winRateData = labels.map(k => counts[k] ? (wins[k] / counts[k]) * 100 : 0);
-        return { labels, countData, winRateData };
-      }
-      // Data for symbols
-      const symbolStats = computeStats(t => t.symbol || '');
-      // Data for timeframe (time frame or session)
-      const tfStats     = computeStats(t => t.tf || '');
-      // Colors generator: generate distinct colors based on index
-      function genColors(count) {
-        const base = [59, 130, 246];
-        const colors = [];
-        for (let i=0; i < count; i++) {
-          const factor = 0.6 + (i / count) * 0.4;
-          const [r,g,b] = base;
-          colors.push(`rgba(${Math.floor(r*factor)},${Math.floor(g*factor)},${Math.floor(b*factor)},0.7)`);
-        }
-        return colors;
-      }
-      const symbolColors = genColors(symbolStats.labels.length);
-      const tfColors     = genColors(tfStats.labels.length);
-      // Destroy existing charts if they exist
-      if (pairCountChart) pairCountChart.destroy();
-      if (pairWinChart) pairWinChart.destroy();
-      if (tfCountChart) tfCountChart.destroy();
-      if (tfWinChart) tfWinChart.destroy();
-      // Create charts
-      const ctx1 = $("pairCountChart");
-      pairCountChart = new Chart(ctx1, {
-        type: 'doughnut',
-        data: {
-          labels: symbolStats.labels,
-          datasets: [{
-            data: symbolStats.countData,
-            backgroundColor: symbolColors,
-            borderColor: symbolColors.map(c => c.replace(',0.7', ',1')),
-            borderWidth: 1
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { display: true, position:'bottom', labels: { color: '#94a3b8' } } }
-        }
-      });
-      const ctx2 = $("pairWinChart");
-      pairWinChart = new Chart(ctx2, {
-        type: 'bar',
-        data: {
-          labels: symbolStats.labels,
-          datasets: [{
-            label: 'Win rate %',
-            data: symbolStats.winRateData,
-            backgroundColor: symbolColors,
-            borderColor: symbolColors.map(c => c.replace(',0.7', ',1')),
-            borderWidth: 1
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { display: false } },
-          scales: {
-            x: { ticks: { color: '#94a3b8' }, grid: { display:false } },
-            y: { ticks: { color: '#94a3b8' }, grid: { color:'rgba(255,255,255,0.05)' }, beginAtZero: true, max: 100 }
-          }
-        }
-      });
-      const ctx3 = $("tfCountChart");
-      tfCountChart = new Chart(ctx3, {
-        type: 'doughnut',
-        data: {
-          labels: tfStats.labels,
-          datasets: [{
-            data: tfStats.countData,
-            backgroundColor: tfColors,
-            borderColor: tfColors.map(c => c.replace(',0.7', ',1')),
-            borderWidth: 1
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { display:true, position:'bottom', labels: { color: '#94a3b8' } } }
-        }
-      });
-      const ctx4 = $("tfWinChart");
-      tfWinChart = new Chart(ctx4, {
-        type: 'bar',
-        data: {
-          labels: tfStats.labels,
-          datasets: [{
-            label: 'Win rate %',
-            data: tfStats.winRateData,
-            backgroundColor: tfColors,
-            borderColor: tfColors.map(c => c.replace(',0.7', ',1')),
-            borderWidth: 1
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { display: false } },
-          scales: {
-            x: { ticks: { color:'#94a3b8' }, grid: { display:false } },
-            y: { ticks: { color:'#94a3b8' }, grid: { color:'rgba(255,255,255,0.05)' }, beginAtZero: true, max: 100 }
-          }
-        }
-      });
-    }
+
     // Render table rows
     function renderTable(trades) {
         trades = (trades || []).filter(isRealTradeRow);
