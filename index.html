@@ -569,7 +569,7 @@ input[type="date"] {
       <div class="kpi-card"><h3>Calmar</h3><div class="value" id="kpiCalmar">0.00</div></div>
 
       <!-- Additional KPIs for more advanced metrics -->
-      <div class="kpi-card"><h3>Expectancia</h3><div class="value" id="kpiExpectancy">0.00</div></div>
+      <div class="kpi-card"><h3>Expectancia (R)</h3><div class="value" id="kpiExpectancy">0.00</div></div>
 
       <!-- KPI cards for Risk:Reward analysis -->
       <div class="kpi-card"><h3>RR real prom.</h3><div class="value" id="kpiRRReal">0.00R</div></div>
@@ -1265,8 +1265,22 @@ calmar = Math.abs(maxDD) > 0 ? (totalReturn / Math.abs(maxDD)) : 0;
   const avgWin = countWins ? totalWins / countWins : 0;
   const avgLoss = countLosses ? -(totalLosses / countLosses) : 0;
   const payoffRatio = avgLoss === 0 ? 0 : (avgWin / Math.abs(avgLoss));
-  const expectancy = (winRate * avgWin) + ((1 - winRate) * avgLoss);
+// ===== Expectancia en R =====
+let sumR = 0;
+let countR = 0;
 
+trades.forEach(t => {
+  const pnl = Number(t.pnl);
+  const sl = Number(t.sl_pips);
+
+  if (Number.isFinite(pnl) && Number.isFinite(sl) && sl > 0) {
+    const r = pnl / sl;
+    sumR += r;
+    countR++;
+  }
+});
+
+const expectancy = countR ? (sumR / countR) : 0;
   return {
     total,
     winRate,
@@ -2077,7 +2091,7 @@ const sorted = filteredTrades
       $('kpiSharpe').textContent = fmt2(metrics.sharpe);
       $('kpiCalmar').textContent = fmt2(metrics.calmar);
       // Set additional KPIs
-      $('kpiExpectancy').textContent = fmt2(metrics.expectancy);
+$('kpiExpectancy').textContent = fmt2(metrics.expectancy) + 'R';
 
       // Compute Risk:Reward metrics and update KPI cards.  These metrics
       // measure the average RR achieved (real) and the average RR potential
