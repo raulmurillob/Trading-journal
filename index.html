@@ -833,39 +833,48 @@ function renderConfluenceDropdown(filterText = '') {
     const fmt2 = (num) => Number.isFinite(num) ? num.toFixed(2) : '0.00';
     const pct = (val) => Number.isFinite(val) ? (val * 100).toFixed(2) + '%' : '0%';
     const parseDate = (str) => {
-      // Robust date parser for multiple formats:
-      // Accepts ISO strings, DD/MM/YYYY, DD-MM-YYYY, serial numbers from Sheets/Excel.
-      if (str === null || str === undefined) return null;
+  if (str === null || str === undefined) return null;
 
-      // Serial number (numbers) from Google Sheets/Excel
-      if (typeof str === "number" && Number.isFinite(str)) {
-        const base = new Date(Date.UTC(1899, 11, 30)); // 1899-12-30
-        const d = new Date(base.getTime() + str * 86400000);
-        return isNaN(d) ? null : d;
-      }
+  // Excel / Sheets serial number
+  if (typeof str === "number" && Number.isFinite(str)) {
+    const base = new Date(Date.UTC(1899, 11, 30));
+    return new Date(base.getTime() + str * 86400000);
+  }
 
-      const s = String(str).trim();
-      if (!s) return null;
+  const s = String(str).trim();
+  if (!s) return null;
 
-      // Try native Date parse for ISO and RFC compliant strings
-      let d = new Date(s);
-      if (!isNaN(d)) return d;
+  // Intento nativo
+  let d = new Date(s);
+  if (!isNaN(d)) return d;
 
-      // Support DD/MM/YYYY or DD-MM-YYYY with optional time HH:MM(:SS)
-      const m = s.match(/^\s*(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?\s*$/);
-      if (m) {
-        let day = +m[1];
-        let mon = +m[2];
-        let year = +m[3];
-        if (year < 100) year += 2000;
-        const hh = +m[4] || 0;
-        const mm = +m[5] || 0;
-        const ss = +m[6] || 0;
-        d = new Date(year, mon - 1, day, hh, mm, ss);
-        return isNaN(d) ? null : d;
-      }
-      return null;
-    };
+  // DD/MM/YYYY HH:mm(:ss)? AM/PM opcional
+  let m = s.match(
+    /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?(?:\s*(AM|PM))?$/i
+  );
+
+  if (m) {
+    let day = +m[1];
+    let month = +m[2];
+    let year = +m[3];
+
+    if (year < 100) year += 2000;
+
+    let hh = +m[4] || 0;
+    const mm = +m[5] || 0;
+    const ss = +m[6] || 0;
+    const ampm = (m[7] || '').toUpperCase();
+
+    if (ampm === 'PM' && hh < 12) hh += 12;
+    if (ampm === 'AM' && hh === 12) hh = 0;
+
+    d = new Date(year, month - 1, day, hh, mm, ss);
+
+    if (!isNaN(d)) return d;
+  }
+
+  return null;
+};
 
     // Global declaration for range filter buttons.  This will be populated later in the script
     // and ensures that applyCurrentFilters and other functions can always access the variable
@@ -2992,7 +3001,9 @@ wireAutoFilters();
   const d = parseDate(t.date);
   return d && !isNaN(d.getTime()) && Number.isFinite(t.pnl);
 });        // Replace global trades and update UI
-        ALL_TRADES = trades;
+        console.log('Trades cargados:', trades);
+console.log('Primer trade:', trades[0]);
+        LL_TRADES = trades;
         populatePairFilter(ALL_TRADES);
         populateConfluenceFilter(ALL_TRADES);
         applyCurrentFilters();
