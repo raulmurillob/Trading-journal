@@ -1037,7 +1037,16 @@ const tpLegacyVal =
   raw.TP ?? raw.tp ?? raw['Tp'] ?? raw['tp'] ?? null;
 
 const mfeVal = raw.MFE ?? raw.mfe ?? raw['Mfe'] ?? raw['mfe'] ?? null;
+const resultadoRVal =
+  raw.Resultado_R ?? raw.resultado_r ?? raw['RESULTADO_R'] ?? null;
       return {
+      resultado_r: (
+  resultadoRVal !== null &&
+  resultadoRVal !== undefined &&
+  String(resultadoRVal).trim() !== ''
+)
+  ? Number(resultadoRVal)
+  : null,
         date: String(date).trim(),
         pnl: Number(pnl) || 0,
         symbol: String(symbol).trim(),
@@ -1267,11 +1276,9 @@ let sumR = 0;
 let countR = 0;
 
 trades.forEach(t => {
-  const pnl = Number(t.pnl);
-  const sl = Number(t.sl_pips);
+  const r = Number(t.resultado_r);
 
-  if (Number.isFinite(pnl) && Number.isFinite(sl) && sl > 0) {
-    const r = pnl / sl;
+  if (Number.isFinite(r)) {
     sumR += r;
     countR++;
   }
