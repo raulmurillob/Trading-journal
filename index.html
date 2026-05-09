@@ -2252,7 +2252,8 @@ function updateEquityChart(metricsOrEqSeries) {
     return (accountSize || 0) + (Number(p.equity) || 0);
   });
 
-  let data;
+let data;
+
 if (equityType === 'percentage') {
 
   const sorted = FILTERED_TRADES
@@ -2289,14 +2290,9 @@ if (equityType === 'percentage') {
 
 } else {
 
-  const base = equityMoney[0] || 1;
+  data = equityMoney;
 
-  data = equityMoney.map(v =>
-    base ? ((v / base) - 1) * 100 : 0
-  );
-}  } else {
-    data = equityMoney;
-  }
+}
 
   const mainLabel = equityType === 'percentage' ? 'Equity (%)' : 'Equity ($)';
 
