@@ -2244,41 +2244,48 @@ function updateEquityChart(metricsOrEqSeries) {
   });
 
   let data;
-  if (equityType === 'percentage') {
-    const sorted = FILTERED_TRADES
-  .slice()
-  .sort((a, b) => (parseDate(a.date) ?? 0) - (parseDate(b.date) ?? 0));
+if (equityType === 'percentage') {
 
-let prevBalance = null;
-let compounded = 1;
+  const sorted = FILTERED_TRADES
+    .slice()
+    .sort((a, b) => (parseDate(a.date) ?? 0) - (parseDate(b.date) ?? 0));
 
-data = [];
+  let prevBalance = null;
+  let compounded = 1;
 
-for (const t of sorted) {
-  const balAfter = Number(t.balance);
-  const pnl = Number(t.pnl) || 0;
-  const cf  = Number(t.cashflow) || 0;
+  data = [];
 
-  if (!isFinite(balAfter)) continue;
+  for (const t of sorted) {
 
-  const balBefore =
-    (prevBalance !== null && isFinite(prevBalance))
-      ? prevBalance
-      : (balAfter - pnl - cf);
+    const balAfter = Number(t.balance);
+    const pnl = Number(t.pnl) || 0;
+    const cf  = Number(t.cashflow) || 0;
 
-  if (pnl !== 0 && balBefore > 0) {
-    const r = pnl / balBefore;
-    compounded *= (1 + r);
+    if (!isFinite(balAfter)) continue;
+
+    const balBefore =
+      (prevBalance !== null && isFinite(prevBalance))
+        ? prevBalance
+        : (balAfter - pnl - cf);
+
+    if (pnl !== 0 && balBefore > 0) {
+      const r = pnl / balBefore;
+      compounded *= (1 + r);
+    }
+
+    data.push((compounded - 1) * 100);
+
+    prevBalance = balAfter;
   }
 
-  data.push((compounded - 1) * 100);
-
-  prevBalance = balAfter;
 } else {
-      const base = equityMoney[0] || 1;
-      data = equityMoney.map(v => base ? ((v / base) - 1) * 100 : 0);
-    }
-  } else {
+
+  const base = equityMoney[0] || 1;
+
+  data = equityMoney.map(v =>
+    base ? ((v / base) - 1) * 100 : 0
+  );
+}  } else {
     data = equityMoney;
   }
 
