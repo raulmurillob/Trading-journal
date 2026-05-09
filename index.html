@@ -577,17 +577,14 @@ input[type="date"] {
       <div class="kpi-card"><h3>Pips potencial prom.</h3><div class="value" id="kpiPipsPotProm">0</div></div>
       
     <!-- New KPI card showing the optimal take‑profit level computed from the MFE P80 statistic. -->
-    <div class="kpi-card">
-  <h3>TP Óptimo (máx. expectancia)</h3>
-  <div class="value" id="kpiTPOptimo">0</div>
-</div>
 <div class="kpi-card">
-  <h3>TP Óptimo (con parciales)</h3>
-  <div class="value" id="kpiTPOptimoParcial">0</div>
+  <h3>TP Óptimo (R)</h3>
+  <div class="value" id="kpiTPOptimoR">0R</div>
 </div>
+
 <div class="kpi-card">
-  <h3>TP Óptimo (parciales) en pips</h3>
-  <div class="value" id="kpiTPOptimoParcialPips">0</div>
+  <h3>TP Óptimo (Pips)</h3>
+  <div class="value" id="kpiTPOptimoPips">0</div>
 </div>
 </div>
     <!-- Charts container: equity and PnL side by side -->
@@ -1995,11 +1992,75 @@ FILTERED_TRADES = filteredTrades;
 const TRADE_ROWS = filteredTrades.filter(isRealTradeRow);
 const kpiTrades = document.getElementById('kpiTrades');
 if (kpiTrades) kpiTrades.textContent = String(TRADE_ROWS.length);
- // KPI: TP Óptimo (máx. expectancia) en pips
+// ===== KPI: TP Óptimo (R y Pips) =====
 try {
-const res = computeTPOptimoMaxExpectancia(filteredTrades);
-  const el = document.getElementById('kpiTPOptimo');
-  if (el) el.textContent = (res && Number.isFinite(res.tp)) ? String(Math.round(res.tp)) : '0';
+  const valid = filteredTrades.filter(t =>
+    Number.isFinite(Number(t.sl_pips)) &&
+    Number(t.sl_pips) > 0 &&
+    Number.isFinite(Number(t.mfe_pips)) &&
+    Number(t.mfe_pips) >= 0
+  );
+
+  if (valid.length) {
+
+    // convertir MFE a R
+    const rows = valid.map(t => ({
+      mfeR: Number(t.mfe_pips) / Number(t.sl_pips),
+      sl: Number(t.sl_pips)
+    }));
+
+    const maxR = Math.max(...rows.map(r => r.mfeR));
+
+    let bestR = 0;
+    let bestExp = -Infinity;
+
+    for (let tpR = 0.5; tpR <= maxR; tpR += 0.1) {
+
+      let total = 0;
+
+      rows.forEach(r => {
+        if (r.mfeR >= tpR) total += tpR;
+        else total -= 1;
+      });
+
+      const exp = total / rows.length;
+
+      if (exp > bestExp) {
+        bestExp = exp;
+        bestR = tpR;
+      }
+    }
+
+    // KPI R
+    const elR = document.getElementById('kpiTPOptimoR');
+    if (elR) {
+      elR.textContent = bestR.toFixed(1) + 'R';
+    }
+
+    // convertir a pips usando SL mediano
+    const slList = rows.map(r => r.sl).sort((a,b) => a-b);
+
+    let slMed = 0;
+
+    if (slList.length) {
+      const mid = Math.floor(slList.length / 2);
+
+      slMed =
+        slList.length % 2
+          ? slList[mid]
+          : (slList[mid - 1] + slList[mid]) / 2;
+    }
+
+    const tpPips = bestR * slMed;
+
+    const elPips = document.getElementById('kpiTPOptimoPips');
+
+    if (elPips) {
+      elPips.textContent = Math.round(tpPips);
+    }
+
+  }
+
 } catch (err) {
   console.error('Error TP Óptimo:', err);
 }
