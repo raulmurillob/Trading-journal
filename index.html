@@ -2080,42 +2080,6 @@ try {
 } catch (err) {
   console.error('Error TP Óptimo:', err);
 }
-
-// KPI: TP Óptimo (con parciales) en R
-try {
-const resParcial = computeTPOptimoConParciales(filteredTrades);
-  const elParcial = document.getElementById('kpiTPOptimoParcial');
-  if (elParcial) {
-    elParcial.textContent =
-      (resParcial && Number.isFinite(resParcial.tpR))
-        ? (resParcial.tpR.toFixed(1) + 'R')
-        : '0R';
-  }
-} catch (err) {
-  console.error('Error TP Óptimo (con parciales):', err);
-  const elParcial = document.getElementById('kpiTPOptimoParcial');
-  if (elParcial) elParcial.textContent = '0R';
-}
-// KPI: TP Óptimo (con parciales) convertido a PIPS (usando mediana de SL)
-try {
-  const resParcial = computeTPOptimoConParciales(filteredTrades);
-
-  const slList = (filteredTrades || [])
-    .map(t => Number(t.sl_pips))
-    .filter(v => Number.isFinite(v) && v > 0);
-
-  const slMed = median(slList); // SL representativo del periodo
-  const tpPips = (resParcial && Number.isFinite(resParcial.tpR) && slMed > 0)
-    ? (resParcial.tpR * slMed)
-    : 0;
-
-  const el = document.getElementById('kpiTPOptimoParcialPips');
-  if (el) el.textContent = tpPips ? String(Math.round(tpPips)) : '0';
-} catch (err) {
-  console.error('Error TP Óptimo (parciales) pips:', err);
-  const el = document.getElementById('kpiTPOptimoParcialPips');
-  if (el) el.textContent = '0';
-}
       // Hide reset button if not in group filter mode
       const resetBtn = $('resetGroupBtn');
       if (resetBtn && !groupFilterActive) {
