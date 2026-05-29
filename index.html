@@ -844,9 +844,24 @@ function renderConfluenceDropdown(filterText = '') {
   const s = String(str).trim();
   if (!s) return null;
 
-  // Intento nativo
-  let d = new Date(s);
-  if (!isNaN(d)) return d;
+  // YYYY/MM/DD HH:mm
+let mIso = s.match(
+  /^(\d{4})\/(\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?$/
+);
+
+if (mIso) {
+  const year = +mIso[1];
+  const month = +mIso[2];
+  const day = +mIso[3];
+  const hh = +mIso[4] || 0;
+  const mm = +mIso[5] || 0;
+
+  return new Date(year, month - 1, day, hh, mm);
+}
+
+// Intento nativo
+let d = new Date(s);
+if (!isNaN(d)) return d;
 
   // DD/MM/YYYY HH:mm(:ss)? AM/PM opcional
   let m = s.match(
@@ -2955,25 +2970,8 @@ wireAutoFilters();
           const allEmpty = keys.length === 0 || keys.every(k => String(row[k] ?? '').trim() === '');
           return !allEmpty;
         });
-        console.log("RAW:", cleaned[0]);
-console.log("NORMALIZED:", normalize(cleaned[0]));
         const trades = cleaned.map(normalize);
-
-console.log("Trades antes del filtro:", trades.length);
-
-trades.forEach((t,i)=>{
-  const d = parseDate(t.date);
-
-  if(!d || isNaN(d.getTime())){
-    console.log("Fecha inválida:", i, t.date);
-  }
-
-  if(!Number.isFinite(t.pnl)){
-    console.log("PNL inválido:", i, t.pnl);
-  }
-});       // Replace global trades and update UI
-        console.log('Trades cargados:', trades);
-console.log('Primer trade:', trades[0]);
+      // Replace global trades and update UI
         ALL_TRADES = trades;
         populatePairFilter(ALL_TRADES);
         populateConfluenceFilter(ALL_TRADES);
