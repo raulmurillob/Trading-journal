@@ -2970,6 +2970,7 @@ wireAutoFilters();
           const allEmpty = keys.length === 0 || keys.every(k => String(row[k] ?? '').trim() === '');
           return !allEmpty;
         });
+        console.log("RAW PRIMER ROW:", cleaned[0]);
         const trades = cleaned.map(normalize);
       // Replace global trades and update UI
         ALL_TRADES = trades;
