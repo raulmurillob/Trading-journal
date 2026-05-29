@@ -987,8 +987,15 @@ let equityType = 'percentage';
     // Normalize trade row from CSV or JSON
     function normalize(raw) {
       // Extract fields with fallbacks
-      const date = raw.date ?? raw.Date ?? raw.fecha ?? raw.Fecha ?? '';
-      const pnl = raw.pnl ?? raw.PnL ?? raw.Pnl ?? raw.PNL ?? raw['pips sesion'] ?? raw['PIPS SESION'] ?? raw['pips semana'] ?? raw['PIPS SEMANA'] ?? 0;
+const date =
+  raw.fe ??
+  raw.FE ??
+  raw.date ??
+  raw.Date ??
+  raw.fecha ??
+  raw.Fecha ??
+  '';
+        const pnl = raw.pnl ?? raw.PnL ?? raw.Pnl ?? raw.PNL ?? raw['pips sesion'] ?? raw['PIPS SESION'] ?? raw['pips semana'] ?? raw['PIPS SEMANA'] ?? 0;
       const balance =
   raw.balance ?? raw.Balance ?? raw.BALANCE ?? raw.capital ?? raw.Capital ?? raw.CAPITAL ?? null;
 
