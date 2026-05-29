@@ -2955,17 +2955,12 @@ wireAutoFilters();
           const allEmpty = keys.length === 0 || keys.every(k => String(row[k] ?? '').trim() === '');
           return !allEmpty;
         });
-        console.log("RAW:", cleaned[0]);
         const trades = cleaned
           .map(normalize)
 .filter(t => {
   const d = parseDate(t.date);
   return d && !isNaN(d.getTime()) && Number.isFinite(t.pnl);
-});  
-console.log("NORMALIZED:", normalize(cleaned[0]));
-console.log("PNL:", normalize(cleaned[0]).pnl);
-console.log("DATE:", normalize(cleaned[0]).date);
-      // Replace global trades and update UI
+});        // Replace global trades and update UI
         console.log('Trades cargados:', trades);
 console.log('Primer trade:', trades[0]);
         ALL_TRADES = trades;
