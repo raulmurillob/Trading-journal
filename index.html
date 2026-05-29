@@ -2978,8 +2978,9 @@ wireAutoFilters();
           return !allEmpty;
         });
         console.log("RAW PRIMER ROW:", cleaned[0]);
-        const trades = cleaned.map(normalize);
-        console.log("NORMALIZED FIRST:", trades[0]);
+       const trades = cleaned.map(normalize);
+
+console.log("NORMALIZED FIRST:", trades[0]);
 console.log("FIRST DATE:", trades[0]?.date);
       // Replace global trades and update UI
         ALL_TRADES = trades;
