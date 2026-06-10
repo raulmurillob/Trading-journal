@@ -634,8 +634,12 @@ input[type="date"] {
     <th>Comentario</th>
   </tr>
 </thead>
-        <tbody id="tradesBody"></tbody>
-      </table>
+<tbody id="tradesBody"></tbody>
+</table>
+
+<div id="pagination"
+     style="display:flex;justify-content:center;align-items:center;gap:0.5rem;margin-top:1rem;">
+</div>
     </div>
 
   
@@ -950,6 +954,8 @@ function formatDateLabel(label) {
     // Storage for trades
     let ALL_TRADES = [];
     let FILTERED_TRADES = [];
+    let CURRENT_PAGE = 1;
+const TRADES_PER_PAGE = 10;
     let equityChart, pnlChart;
     let PF_ROWS = [];
 let pfEquityChart = null;
@@ -1980,7 +1986,7 @@ function compareStrategies_R(trades, rMin = 2, rMax = 5, step = 0.5) {
 }
     // Render metrics and charts
     function renderAll(trades) {
-
+CURRENT_PAGE = 1;
 // ===== 1) Aplicar filtros combinables (Hora + Par) =====
 let filteredTrades = Array.isArray(trades) ? trades.slice() : [];
 // 1A) Filtro por PAR
@@ -2502,40 +2508,124 @@ if (equityType === 'percentage') {
 }
 
     // Render table rows
-    function renderTable(trades) {
-        trades = (trades || []).filter(isRealTradeRow);
-      const tbody = $('tradesBody');
-      const search = $('searchInput').value.toLowerCase().trim();
-      const filtered = !search ? trades : trades.filter(t => {
-        return (t.symbol && t.symbol.toLowerCase().includes(search)) ||
-               (t.type && t.type.toLowerCase().includes(search)) ||
-               (t.comment && t.comment.toLowerCase().includes(search)) ||
-               (t.date && t.date.toLowerCase().includes(search));
-      });
-      $('tradeStats').textContent = `${filtered.length} trade${filtered.length === 1 ? '' : 's'}`;
-      tbody.innerHTML = '';
-      filtered.sort((a,b) => (parseDate(a.date) ?? 0) - (parseDate(b.date) ?? 0)).forEach(t => {
-        const tr = document.createElement('tr');
-        const cls = t.pnl >= 0 ? 'pos' : 'neg';
-const outcome = (t.outcome || '').toUpperCase();
-const outcomeClass =
-  outcome === 'WIN'  ? 'outcome-win'  :
-  outcome === 'LOSS' ? 'outcome-loss' :
-  outcome === 'BE'   ? 'outcome-be'   : '';
+function renderTable(trades) {
 
-tr.innerHTML = `
-  <td class="mono col-date">${formatPrettyDate(t.date, true)}</td>
-  <td>${t.symbol || '-'}</td>
-  <td>${t.type || '-'}</td>
-  <td class="mono">${(t.entry !== undefined && t.entry !== null && String(t.entry).trim() !== '') ? t.entry : '-'}</td>
-  <td class="${outcomeClass}">${outcome || '-'}</td>
-  <td class="mono ${cls}">${fmt2(t.pnl)}</td>
-  <td>${t.comment || ''}</td>
-`;        tr.addEventListener('click', () => showTradeDetails(t));
-        tbody.appendChild(tr);
+  trades = (trades || []).filter(isRealTradeRow);
+
+  const tbody = $('tradesBody');
+
+  const search = $('searchInput').value.toLowerCase().trim();
+
+  const filtered = !search
+    ? trades
+    : trades.filter(t => {
+        return (
+          (t.symbol && t.symbol.toLowerCase().includes(search)) ||
+          (t.type && t.type.toLowerCase().includes(search)) ||
+          (t.comment && t.comment.toLowerCase().includes(search)) ||
+          (t.date && t.date.toLowerCase().includes(search))
+        );
       });
-    }
-    // ===== Lightbox para ampliar imágenes =====
+
+  // MÁS RECIENTE → MÁS ANTIGUO
+  filtered.sort(
+    (a,b) => (parseDate(b.date) ?? 0) - (parseDate(a.date) ?? 0)
+  );
+
+  $('tradeStats').textContent =
+    `${filtered.length} trade${filtered.length === 1 ? '' : 's'}`;
+
+  const totalPages =
+    Math.max(1, Math.ceil(filtered.length / TRADES_PER_PAGE));
+
+  if (CURRENT_PAGE > totalPages) {
+    CURRENT_PAGE = totalPages;
+  }
+
+  const start =
+    (CURRENT_PAGE - 1) * TRADES_PER_PAGE;
+
+  const pageRows =
+    filtered.slice(start, start + TRADES_PER_PAGE);
+
+  tbody.innerHTML = '';
+
+  pageRows.forEach(t => {
+
+    const tr = document.createElement('tr');
+
+    const cls = t.pnl >= 0 ? 'pos' : 'neg';
+
+    const outcome = (t.outcome || '').toUpperCase();
+
+    const outcomeClass =
+      outcome === 'WIN'  ? 'outcome-win' :
+      outcome === 'LOSS' ? 'outcome-loss' :
+      outcome === 'BE'   ? 'outcome-be' :
+      '';
+
+    tr.innerHTML = `
+      <td class="mono col-date">${formatPrettyDate(t.date, true)}</td>
+      <td>${t.symbol || '-'}</td>
+      <td>${t.type || '-'}</td>
+      <td class="mono">${t.entry || '-'}</td>
+      <td class="${outcomeClass}">${outcome || '-'}</td>
+      <td class="mono ${cls}">${fmt2(t.pnl)}</td>
+      <td>${t.comment || ''}</td>
+    `;
+
+    tr.addEventListener('click', () => showTradeDetails(t));
+
+    tbody.appendChild(tr);
+  });
+
+  renderPagination(totalPages);
+}
+function renderPagination(totalPages) {
+
+  const el = document.getElementById('pagination');
+
+  if (!el) return;
+
+  el.innerHTML = '';
+
+  if (totalPages <= 1) return;
+
+  const prev = document.createElement('button');
+  prev.className = 'btn';
+  prev.textContent = '←';
+
+  prev.disabled = CURRENT_PAGE === 1;
+
+  prev.onclick = () => {
+    CURRENT_PAGE--;
+    renderTable(FILTERED_TRADES);
+  };
+
+  el.appendChild(prev);
+
+  const label = document.createElement('span');
+
+  label.style.color = '#94a3b8';
+
+  label.textContent =
+    `Página ${CURRENT_PAGE} de ${totalPages}`;
+
+  el.appendChild(label);
+
+  const next = document.createElement('button');
+  next.className = 'btn';
+  next.textContent = '→';
+
+  next.disabled = CURRENT_PAGE === totalPages;
+
+  next.onclick = () => {
+    CURRENT_PAGE++;
+    renderTable(FILTERED_TRADES);
+  };
+
+  el.appendChild(next);
+}
 function openLightbox(src) {
   const lb = document.getElementById('imgLightbox');
   const im = document.getElementById('imgLightboxImg');
