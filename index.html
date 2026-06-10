@@ -954,8 +954,7 @@ function formatDateLabel(label) {
     // Storage for trades
     let ALL_TRADES = [];
     let FILTERED_TRADES = [];
-    let CURRENT_PAGE = 1;
-const TRADES_PER_PAGE = 10;
+let VISIBLE_TRADES = 10;
     let equityChart, pnlChart;
     let PF_ROWS = [];
 let pfEquityChart = null;
@@ -1986,7 +1985,7 @@ function compareStrategies_R(trades, rMin = 2, rMax = 5, step = 0.5) {
 }
     // Render metrics and charts
     function renderAll(trades) {
-CURRENT_PAGE = 1;
+VISIBLE_TRADES = 10;
 // ===== 1) Aplicar filtros combinables (Hora + Par) =====
 let filteredTrades = Array.isArray(trades) ? trades.slice() : [];
 // 1A) Filtro por PAR
@@ -2535,18 +2534,8 @@ function renderTable(trades) {
   $('tradeStats').textContent =
     `${filtered.length} trade${filtered.length === 1 ? '' : 's'}`;
 
-  const totalPages =
-    Math.max(1, Math.ceil(filtered.length / TRADES_PER_PAGE));
 
-  if (CURRENT_PAGE > totalPages) {
-    CURRENT_PAGE = totalPages;
-  }
-
-  const start =
-    (CURRENT_PAGE - 1) * TRADES_PER_PAGE;
-
-  const pageRows =
-    filtered.slice(start, start + TRADES_PER_PAGE);
+const pageRows = filtered.slice(0, VISIBLE_TRADES);
 
   tbody.innerHTML = '';
 
@@ -2579,9 +2568,7 @@ function renderTable(trades) {
     tbody.appendChild(tr);
   });
 
-  renderPagination(totalPages);
-}
-function renderPagination(totalPages) {
+function renderLoadMore(totalTrades) {
 
   const el = document.getElementById('pagination');
 
@@ -2589,42 +2576,24 @@ function renderPagination(totalPages) {
 
   el.innerHTML = '';
 
-  if (totalPages <= 1) return;
+  if (VISIBLE_TRADES >= totalTrades) return;
 
-  const prev = document.createElement('button');
-  prev.className = 'btn';
-  prev.textContent = '←';
+  const btn = document.createElement('button');
 
-  prev.disabled = CURRENT_PAGE === 1;
+  btn.className = 'btn';
 
-  prev.onclick = () => {
-    CURRENT_PAGE--;
+  btn.textContent =
+    `Ver más (${VISIBLE_TRADES}/${totalTrades})`;
+
+  btn.onclick = () => {
+
+    VISIBLE_TRADES += 10;
+
     renderTable(FILTERED_TRADES);
+
   };
 
-  el.appendChild(prev);
-
-  const label = document.createElement('span');
-
-  label.style.color = '#94a3b8';
-
-  label.textContent =
-    `Página ${CURRENT_PAGE} de ${totalPages}`;
-
-  el.appendChild(label);
-
-  const next = document.createElement('button');
-  next.className = 'btn';
-  next.textContent = '→';
-
-  next.disabled = CURRENT_PAGE === totalPages;
-
-  next.onclick = () => {
-    CURRENT_PAGE++;
-    renderTable(FILTERED_TRADES);
-  };
-
-  el.appendChild(next);
+  el.appendChild(btn);
 }
 function openLightbox(src) {
   const lb = document.getElementById('imgLightbox');
@@ -3255,6 +3224,7 @@ function runTPSimulation() {
 
   console.log('Mejor TP fijo:', bestFixed);
   console.log('Mejor TP parciales:', bestPart);
+  renderLoadMore(filtered.length);
 }
 
 // Botón
