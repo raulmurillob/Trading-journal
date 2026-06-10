@@ -2567,34 +2567,8 @@ const pageRows = filtered.slice(0, VISIBLE_TRADES);
 
     tbody.appendChild(tr);
   });
+  renderLoadMore(filtered.length);
 
-function renderLoadMore(totalTrades) {
-
-  const el = document.getElementById('pagination');
-
-  if (!el) return;
-
-  el.innerHTML = '';
-
-  if (VISIBLE_TRADES >= totalTrades) return;
-
-  const btn = document.createElement('button');
-
-  btn.className = 'btn';
-
-  btn.textContent =
-    `Ver más (${VISIBLE_TRADES}/${totalTrades})`;
-
-  btn.onclick = () => {
-
-    VISIBLE_TRADES += 10;
-
-    renderTable(FILTERED_TRADES);
-
-  };
-
-  el.appendChild(btn);
-}
 function openLightbox(src) {
   const lb = document.getElementById('imgLightbox');
   const im = document.getElementById('imgLightboxImg');
@@ -3229,6 +3203,35 @@ function runTPSimulation() {
 // Botón
 const runSimBtn = document.getElementById('runSimBtn');
 if (runSimBtn) runSimBtn.addEventListener('click', runTPSimulation);
+
+function renderLoadMore(totalTrades) {
+
+  const el = document.getElementById('pagination');
+
+  if (!el) return;
+
+  el.innerHTML = '';
+
+  if (VISIBLE_TRADES >= totalTrades) return;
+
+  const btn = document.createElement('button');
+
+  btn.className = 'btn';
+
+  btn.textContent =
+    `Ver más (${VISIBLE_TRADES}/${totalTrades})`;
+
+  btn.onclick = () => {
+
+    VISIBLE_TRADES += 10;
+
+    renderTable(FILTERED_TRADES);
+
+  };
+
+  el.appendChild(btn);
+}
+
 
 // Para que se actualice solo cuando cambias filtros (opcional):
 // Llama runTPSimulation() al final de renderAll()
