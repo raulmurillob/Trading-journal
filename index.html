@@ -680,6 +680,99 @@ input[type="date"] {
     </table>
   </div>
 </div>
+<!-- ===== Simulación: TP fijo vs BE en 2R ===== -->
+<div class="chart-wrapper" style="grid-column: 1 / -1; margin-top:1.5rem;">
+
+  <div class="chart-header"
+       style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+
+    <h3 style="margin:0;">
+      Simulación: TP fijo — Sin BE vs BE en 2R
+    </h3>
+
+    <div style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap;">
+
+      <label style="color:var(--muted); font-size:0.85rem;">
+        Rango:
+      </label>
+
+      <input
+        id="beSimRMin"
+        type="number"
+        step="0.5"
+        value="1"
+        min="0.5"
+        style="width:80px; padding:0.35rem 0.5rem;
+               border:1px solid var(--border);
+               border-radius:0.4rem;
+               background:var(--surface);
+               color:var(--text);">
+
+      <span style="color:var(--muted);">a</span>
+
+      <input
+        id="beSimRMax"
+        type="number"
+        step="0.5"
+        value="6"
+        min="1"
+        style="width:80px; padding:0.35rem 0.5rem;
+               border:1px solid var(--border);
+               border-radius:0.4rem;
+               background:var(--surface);
+               color:var(--text);">
+
+      <label style="color:var(--muted); font-size:0.85rem;">
+        Paso:
+      </label>
+
+      <input
+        id="beSimStep"
+        type="number"
+        step="0.1"
+        value="0.5"
+        min="0.1"
+        style="width:80px; padding:0.35rem 0.5rem;
+               border:1px solid var(--border);
+               border-radius:0.4rem;
+               background:var(--surface);
+               color:var(--text);">
+
+      <button
+        id="runBESimBtn"
+        class="btn"
+        style="padding:0.35rem 0.7rem; font-size:0.85rem;">
+        Simular
+      </button>
+
+    </div>
+  </div>
+
+  <canvas id="beSimChart" height="110"></canvas>
+
+  <div style="overflow-x:auto; margin-top:0.8rem;">
+
+    <table>
+
+      <thead>
+        <tr>
+          <th>TP (R)</th>
+          <th>Exp. Sin BE (R)</th>
+          <th>WR Sin BE</th>
+          <th>Exp. BE 2R (R)</th>
+          <th>WR BE 2R</th>
+          <th>Δ (Sin BE - BE)</th>
+          <th>N</th>
+        </tr>
+      </thead>
+
+      <tbody id="beSimTableBody"></tbody>
+
+    </table>
+
+  </div>
+
+</div>
 <!-- ===== Prop Firms Dashboard ===== -->
 <div style="margin-top:2rem;">
   <h2 style="text-align:center; margin:0 0 0.75rem;">Prop Firms</h2>
@@ -1054,6 +1147,10 @@ if (!setup) setup = raw['Set up'] ?? raw['SET UP'] ?? '';
 
 const confluences =
   raw.confluences ?? raw.Confluences ?? raw.CONFLUENCES ?? '';
+  // Mover SL a BE al alcanzar 2R
+const moverSL =
+  raw.mover_sl ?? raw.Mover_SL ?? raw['Mover SL'] ??
+  raw.MOVER_SL ?? raw['Mover SL '] ?? '';
 // Imagen (en tu Sheet viene como "CAPTURA"; también soporta "captura" o "image")
 const img =
   raw.image ?? raw.img ?? raw.screenshot ??
@@ -1092,6 +1189,7 @@ const resultadoRVal =
         type: String(type).trim(),
         comment: String(comment).trim(),
         confluences: String(confluences).trim(),
+        mover_sl: String(moverSL).trim().toUpperCase(),
         tf: String(tf).trim(),
         entry: entry ? String(entry).trim() : '',
         sl: sl ? String(sl).trim() : '',
@@ -3232,7 +3330,615 @@ function renderLoadMore(totalTrades) {
   el.appendChild(btn);
 }
 
+// ============================================================
+// SIMULACIÓN: TP FIJO SIN BE vs TP FIJO + MOVER SL A BE EN 2R
+// ============================================================
 
+let beSimChart = null;
+
+
+// ------------------------------------------------------------
+// Estrategia 1:
+// TP fijo SIN mover SL
+//
+// Si MFE alcanza el TP:
+//      resultado = +TP
+//
+// Si MFE NO alcanza el TP:
+//      resultado = -1R
+// ------------------------------------------------------------
+
+function strategyFixedTP_NoBE(trades, tpR) {
+
+  const rows = [];
+
+  for (const t of trades) {
+
+    const sl  = Number(t.sl_pips);
+    const mfe = Number(t.mfe_pips);
+
+    if (!Number.isFinite(sl) || sl <= 0) continue;
+    if (!Number.isFinite(mfe) || mfe < 0) continue;
+
+    const mfeR = mfe / sl;
+
+    const resultR =
+      mfeR >= tpR
+        ? tpR
+        : -1;
+
+    rows.push(resultR);
+  }
+
+  if (!rows.length) {
+    return {
+      expectancy: 0,
+      winRate: 0,
+      n: 0
+    };
+  }
+
+  const expectancy =
+    rows.reduce((a, b) => a + b, 0) / rows.length;
+
+  const wins =
+    rows.filter(r => r > 0).length;
+
+  const losses =
+    rows.filter(r => r < 0).length;
+
+  const winRate =
+    (wins + losses) > 0
+      ? wins / (wins + losses)
+      : 0;
+
+  return {
+    expectancy,
+    winRate,
+    n: rows.length
+  };
+}
+
+
+// ------------------------------------------------------------
+// Estrategia 2:
+// TP fijo + mover SL a BE cuando llega a 2R
+//
+// Lógica:
+//
+// MFE < 2R
+//      -> mover SL nunca se activa
+//      -> funciona igual que TP fijo
+//
+// MFE >= 2R
+//
+//      Mover SL = SI
+//          -> BE habría evitado una pérdida
+//          -> resultado = 0R
+//
+//      Mover SL = NO
+//          -> BE habría sacado el trade antes del TP
+//          -> resultado = 0R
+//
+//      Mover SL = X
+//          -> mover SL no cambia el resultado
+//          -> funciona igual que TP fijo
+//
+// TP <= 2R
+//      -> el TP se alcanza antes / al mismo tiempo que BE
+//      -> no hay diferencia práctica
+// ------------------------------------------------------------
+
+function strategyFixedTP_BE2R(trades, tpR) {
+
+  const rows = [];
+
+  for (const t of trades) {
+
+    const sl  = Number(t.sl_pips);
+    const mfe = Number(t.mfe_pips);
+
+    if (!Number.isFinite(sl) || sl <= 0) continue;
+    if (!Number.isFinite(mfe) || mfe < 0) continue;
+
+    const mfeR = mfe / sl;
+
+    const moverSL =
+      String(t.mover_sl || '')
+        .trim()
+        .toUpperCase();
+
+    let resultR;
+
+
+    // ========================================================
+    // TP está en 2R o menos
+    // ========================================================
+
+    if (tpR <= 2) {
+
+      resultR =
+        mfeR >= tpR
+          ? tpR
+          : -1;
+
+    }
+
+    // ========================================================
+    // TP está por encima de 2R
+    // ========================================================
+
+    else {
+
+      // Nunca llegó a 2R:
+      // mover SL a BE nunca se activa.
+      if (mfeR < 2) {
+
+        resultR =
+          mfeR >= tpR
+            ? tpR
+            : -1;
+
+      }
+
+      // Llegó a 2R.
+      else {
+
+        // ----------------------------------------------------
+        // SI = mover SL a BE habría salvado el trade
+        // NO = mover SL a BE habría sacado el trade antes
+        // En ambos casos el resultado de la estrategia BE
+        // queda en 0R.
+        // ----------------------------------------------------
+
+        if (moverSL === 'SI' || moverSL === 'NO') {
+
+          resultR = 0;
+
+        }
+
+        // ----------------------------------------------------
+        // X = mover SL no cambia el resultado.
+        // Por lo tanto mantenemos el resultado del TP fijo.
+        // ----------------------------------------------------
+
+        else {
+
+          resultR =
+            mfeR >= tpR
+              ? tpR
+              : -1;
+        }
+      }
+    }
+
+    rows.push(resultR);
+  }
+
+  if (!rows.length) {
+
+    return {
+      expectancy: 0,
+      winRate: 0,
+      n: 0
+    };
+
+  }
+
+  const expectancy =
+    rows.reduce((a, b) => a + b, 0) / rows.length;
+
+  const wins =
+    rows.filter(r => r > 0).length;
+
+  const losses =
+    rows.filter(r => r < 0).length;
+
+  const winRate =
+    (wins + losses) > 0
+      ? wins / (wins + losses)
+      : 0;
+
+  return {
+    expectancy,
+    winRate,
+    n: rows.length
+  };
+}
+
+
+// ------------------------------------------------------------
+// Comparación completa
+// ------------------------------------------------------------
+
+function compareTP_NoBE_vs_BE2R(
+  trades,
+  rMin = 1,
+  rMax = 6,
+  step = 0.5
+) {
+
+  const out = [];
+
+  for (
+    let tpR = rMin;
+    tpR <= rMax + 1e-9;
+    tpR += step
+  ) {
+
+    const fixed =
+      strategyFixedTP_NoBE(trades, tpR);
+
+    const be =
+      strategyFixedTP_BE2R(trades, tpR);
+
+    out.push({
+
+      TP_R:
+        Number(tpR.toFixed(2)),
+
+      Exp_NoBE:
+        Number(fixed.expectancy.toFixed(3)),
+
+      WR_NoBE:
+        fixed.winRate,
+
+      Exp_BE2R:
+        Number(be.expectancy.toFixed(3)),
+
+      WR_BE2R:
+        be.winRate,
+
+      Delta:
+        Number(
+          (fixed.expectancy - be.expectancy)
+            .toFixed(3)
+        ),
+
+      N:
+        Math.min(fixed.n, be.n)
+
+    });
+
+  }
+
+  return out;
+}
+
+
+// ------------------------------------------------------------
+// Tabla
+// ------------------------------------------------------------
+
+function renderBESimTable(rows) {
+
+  const tb =
+    document.getElementById('beSimTableBody');
+
+  if (!tb) return;
+
+  tb.innerHTML = '';
+
+  rows.forEach(r => {
+
+    const tr =
+      document.createElement('tr');
+
+    const cls =
+      r.Delta >= 0
+        ? 'pos'
+        : 'neg';
+
+    tr.innerHTML = `
+
+      <td class="mono">
+        ${r.TP_R.toFixed(2)}
+      </td>
+
+      <td class="mono">
+        ${r.Exp_NoBE.toFixed(3)}
+      </td>
+
+      <td class="mono">
+        ${(r.WR_NoBE * 100).toFixed(1)}%
+      </td>
+
+      <td class="mono">
+        ${r.Exp_BE2R.toFixed(3)}
+      </td>
+
+      <td class="mono">
+        ${(r.WR_BE2R * 100).toFixed(1)}%
+      </td>
+
+      <td class="mono ${cls}">
+        ${r.Delta.toFixed(3)}
+      </td>
+
+      <td class="mono">
+        ${r.N}
+      </td>
+
+    `;
+
+    tb.appendChild(tr);
+
+  });
+}
+
+
+// ------------------------------------------------------------
+// Gráfico
+// ------------------------------------------------------------
+
+function renderBESimChart(rows) {
+
+  const el =
+    document.getElementById('beSimChart');
+
+  if (!el) return;
+
+  const labels =
+    rows.map(r => r.TP_R.toFixed(2));
+
+  const noBE =
+    rows.map(r => r.Exp_NoBE);
+
+  const BE =
+    rows.map(r => r.Exp_BE2R);
+
+
+  if (beSimChart) {
+    beSimChart.destroy();
+  }
+
+
+  beSimChart =
+    new Chart(el, {
+
+      type: 'line',
+
+      data: {
+
+        labels,
+
+        datasets: [
+
+          {
+            label:
+              'Expectancia TP fijo — Sin BE',
+
+            data: noBE,
+
+            tension: 0.25,
+
+            borderWidth: 2,
+
+            pointRadius: 0
+          },
+
+          {
+            label:
+              'Expectancia TP fijo — BE en 2R',
+
+            data: BE,
+
+            tension: 0.25,
+
+            borderWidth: 2,
+
+            pointRadius: 0
+          }
+
+        ]
+
+      },
+
+      options: {
+
+        responsive: true,
+
+        interaction: {
+          mode: 'index',
+          intersect: false
+        },
+
+        plugins: {
+
+          legend: {
+            labels: {
+              color: '#94a3b8'
+            }
+          },
+
+          tooltip: {
+
+            callbacks: {
+
+              label: (ctx) =>
+                `${ctx.dataset.label}: ${
+                  Number(ctx.raw).toFixed(3)
+                }R`
+
+            }
+
+          }
+
+        },
+
+        scales: {
+
+          x: {
+
+            ticks: {
+              color: '#94a3b8',
+              maxRotation: 0,
+              autoSkip: true
+            },
+
+            grid: {
+              color:
+                'rgba(255,255,255,0.05)'
+            }
+
+          },
+
+          y: {
+
+            ticks: {
+              color: '#94a3b8'
+            },
+
+            grid: {
+              color:
+                'rgba(255,255,255,0.05)'
+            }
+
+          }
+
+        }
+
+      }
+
+    });
+
+}
+
+
+// ------------------------------------------------------------
+// Ejecutar simulación
+// ------------------------------------------------------------
+
+function runBESimulation() {
+
+  // Solamente trades reales.
+  const trades =
+    (FILTERED_TRADES || [])
+      .filter(isRealTradeRow);
+
+
+  const valid =
+    trades.filter(t => {
+
+      const sl =
+        Number(t.sl_pips);
+
+      const mfe =
+        Number(t.mfe_pips);
+
+      return (
+        Number.isFinite(sl) &&
+        sl > 0 &&
+        Number.isFinite(mfe) &&
+        mfe >= 0
+      );
+
+    });
+
+
+  const rMin =
+    Number(
+      document.getElementById('beSimRMin')?.value || 1
+    );
+
+  const rMax =
+    Number(
+      document.getElementById('beSimRMax')?.value || 6
+    );
+
+  const step =
+    Number(
+      document.getElementById('beSimStep')?.value || 0.5
+    );
+
+
+  if (!valid.length) {
+
+    renderBESimTable([]);
+
+    if (beSimChart) {
+      beSimChart.destroy();
+      beSimChart = null;
+    }
+
+    console.warn(
+      'No hay trades con SL y MFE válidos.'
+    );
+
+    return;
+  }
+
+
+  const rows =
+    compareTP_NoBE_vs_BE2R(
+      valid,
+      rMin,
+      rMax,
+      step
+    );
+
+
+  renderBESimChart(rows);
+
+  renderBESimTable(rows);
+
+
+  // ----------------------------------------------------------
+  // Mostrar en consola los mejores TP
+  // ----------------------------------------------------------
+
+  const bestNoBE =
+    rows.reduce(
+      (best, r) =>
+        r.Exp_NoBE > best.Exp_NoBE
+          ? r
+          : best,
+      rows[0]
+    );
+
+
+  const bestBE =
+    rows.reduce(
+      (best, r) =>
+        r.Exp_BE2R > best.Exp_BE2R
+          ? r
+          : best,
+      rows[0]
+    );
+
+
+  console.log(
+    '===== SIMULACIÓN BE EN 2R ====='
+  );
+
+  console.log(
+    'Mejor TP SIN BE:',
+    bestNoBE
+  );
+
+  console.log(
+    'Mejor TP CON BE:',
+    bestBE
+  );
+
+}
+
+
+// ------------------------------------------------------------
+// Botón
+// ------------------------------------------------------------
+
+const runBESimBtn =
+  document.getElementById('runBESimBtn');
+
+if (runBESimBtn) {
+
+  runBESimBtn.addEventListener(
+    'click',
+    runBESimulation
+  );
+
+}
 // Para que se actualice solo cuando cambias filtros (opcional):
 // Llama runTPSimulation() al final de renderAll()
   </script>
